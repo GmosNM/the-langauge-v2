@@ -13,7 +13,9 @@ pub const Token = struct {
         eof,
         identifier,
         string_literal,
-        number,
+        number_literal,
+        float_literal,
+        char_literal,
         // Types
         int,
         float,
@@ -83,6 +85,10 @@ pub const Token = struct {
         .{ "const", .keyword_const },
         .{ "and", .keyword_and },
         .{ "or", .keyword_or },
+        .{ "float", .float },
+        .{ "int", .int },
+        .{ "char", .char },
+        .{ "string", .string },
     });
 
     pub fn getKeyword(lexeme: []const u8) ?Kind {
@@ -282,9 +288,40 @@ pub const Tokenizer = struct {
                     while (index < self.source.len and self.source[index] != '\n') : (index += 1) {}
                 },
                 '0'...'9' => {
-                    while (self.source[index] >= '0' and self.source[index] <= '9' and !self.isPunctuator(self.source[index])) : (index += 1) {}
-                    result.lexeme = self.source[result.location.start..index];
-                    result.kind = .number;
+                    var isFloat = false;
+                    var start = index;
+                    while (index < self.source.len and ((self.source[index] >= '0' and self.source[index] <= '9') or
+                        (self.source[index] == '.' and !isFloat))) : (index += 1)
+                    {
+                        if (self.source[index] == '.') {
+                            isFloat = true;
+                            index += 1;
+                        }
+                    }
+                    if (isFloat) {
+                        result.lexeme = self.source[start..index];
+                        result.kind = .float_literal;
+                    } else {
+                        var lexeme = self.source[start..index];
+                        if (Token.getKeyword(lexeme)) |kind| {
+                            result.kind = kind;
+                        } else {
+                            result.lexeme = lexeme;
+                            result.kind = .number_literal;
+                        }
+                    }
+                },
+                '\'' => {
+                    var start = index;
+                    index += 1;
+                    while (index < self.source.len and self.source[index] != '\'') : (index += 1) {}
+                    if (index < self.source.len) {
+                        result.lexeme = self.source[(start + 1)..index];
+                        result.kind = .char_literal;
+                        index += 1;
+                    } else {
+                        return error.unterminated_char_literal;
+                    }
                 },
                 'a'...'z', 'A'...'Z' => {
                     while ((self.source[index] >= 'a' and self.source[index] <= 'z' or self.source[index] >= 'A' and self.source[index] <= 'Z') and !self.isPunctuator(self.source[index])) : (index += 1) {}
@@ -302,6 +339,8 @@ pub const Tokenizer = struct {
                         if (self.source[index] == '"') {
                             index += 1;
                             break;
+                        } else {
+                            return error.unterminated_string_literal;
                         }
                         index += 1;
                     }
