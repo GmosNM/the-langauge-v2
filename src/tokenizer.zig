@@ -317,6 +317,9 @@ pub const Tokenizer = struct {
                     while (index < self.source.len and self.source[index] != '\'') : (index += 1) {}
                     if (index < self.source.len) {
                         result.lexeme = self.source[(start + 1)..index];
+                        if (result.lexeme.len != 1 or result.lexeme.len == 0) {
+                            return error.not_a_char;
+                        }
                         result.kind = .char_literal;
                         index += 1;
                     } else {
