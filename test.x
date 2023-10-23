@@ -1,8 +1,9 @@
-const PI: float = 3.141592653589793;
-const E: float = 2.718281828459045;
-const F: int = 1892478923472348;
-const X: char = 'x';
-const Y: char = 'y';
-const Z: char = 'z';
-const A: string = "a";
-const B: string = "b";
+const S: float = 3.0e5;
+const T: float = 2.5e-3;
+const HEX: int = 0x12;
+const HEX2: int = 0xFF;
+const HEX3: int = 0x10;
+const HEX4: int = 0x1F;
+const HEX5: int = 0xFF;
+const HEX6: int = 0xFFF;
+const A: int = 0xe;

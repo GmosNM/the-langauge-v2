@@ -298,16 +298,23 @@ pub const Tokenizer = struct {
                 },
                 '0'...'9' => {
                     var isFloat = false;
+                    var isExponent = false;
                     var start = index;
-                    while (index < self.source.len and ((self.source[index] >= '0' and self.source[index] <= '9') or
-                        (self.source[index] == '.' and !isFloat))) : (index += 1)
-                    {
+
+                    while (index < self.source.len and (((self.source[index] >= '0' and self.source[index] <= '9') or
+                        (self.source[index] == '.' and !isFloat)) or
+                        (self.source[index] == 'x' and (index - start) == 1) or
+                        (self.source[index] == '+' or self.source[index] == '-') or
+                        ((self.source[index] == 'e' or self.source[index] == 'E')) or (std.ascii.isHex(self.source[index]) and (index - start) > 1 and !isFloat))) : (index += 1)
                         if (self.source[index] == '.') {
                             isFloat = true;
                             index += 1;
-                        }
-                    }
-                    if (isFloat) {
+                        } else if ((self.source[index] == 'e' or self.source[index] == 'E') and isExponent) {
+                            isExponent = true;
+                            index += 1;
+                        };
+
+                    if (isFloat or isExponent) {
                         result.lexeme = self.source[start..index];
                         result.kind = .float_literal;
                     } else {
@@ -320,6 +327,7 @@ pub const Tokenizer = struct {
                         }
                     }
                 },
+
                 '\'' => {
                     var start = index;
                     index += 1;
@@ -336,16 +344,14 @@ pub const Tokenizer = struct {
                     }
                 },
                 'a'...'z', 'A'...'Z' => {
-                    while ((self.source[index] >= 'a' and self.source[index] <= 'z' or self.source[index] >= 'A' and self.source[index] <= 'Z') and !self.isPunctuator(self.source[index])) : (index += 1) {}
-                    result.lexeme = self.source[result.location.start..index];
-                    if (Token.getKeyword(result.lexeme)) |kind| {
-                        result.kind = kind;
-                    } else {
-                        result.kind = .identifier;
-                    }
+                    while (index < self.source.len and std.ascii.isAlphabetic(self.source[index]) and !self.isPunctuator(self.source[index])) : (index += 1) {}
+                    const lexeme = self.source[result.location.start..index];
+                    result.lexeme = lexeme;
+                    result.kind = Token.getKeyword(lexeme) orelse .identifier;
                 },
+
                 '"' => {
-                    var start = index;
+                    var start = index + 1;
                     index += 1;
                     while (index < self.source.len) {
                         if (self.source[index] == '"') {
@@ -354,7 +360,7 @@ pub const Tokenizer = struct {
                         }
                         index += 1;
                     }
-                    result.lexeme = self.source[start + 1 .. index - 1];
+                    result.lexeme = self.source[start .. index - 1];
                     result.kind = .string_literal;
                 },
 
@@ -432,4 +438,49 @@ test "operators" {
     try testTokenize("=", &.{.Equal});
 
     try testTokenize("!=", &.{.BangEqual});
+}
+
+test "number literals hexadecimal" {
+    try testTokenize("0x0", &.{.number_literal});
+    try testTokenize("0x1", &.{.number_literal});
+    try testTokenize("0x2", &.{.number_literal});
+    try testTokenize("0x3", &.{.number_literal});
+    try testTokenize("0x4", &.{.number_literal});
+    try testTokenize("0x5", &.{.number_literal});
+    try testTokenize("0x6", &.{.number_literal});
+    try testTokenize("0x7", &.{.number_literal});
+    try testTokenize("0x8", &.{.number_literal});
+    try testTokenize("0x9", &.{.number_literal});
+    try testTokenize("0xa", &.{.number_literal});
+    try testTokenize("0xb", &.{.number_literal});
+    try testTokenize("0xc", &.{.number_literal});
+    try testTokenize("0xd", &.{.number_literal});
+    try testTokenize("0xe", &.{.number_literal});
+    try testTokenize("0xf", &.{.number_literal});
+    try testTokenize("0xA", &.{.number_literal});
+    try testTokenize("0xB", &.{.number_literal});
+    try testTokenize("0xC", &.{.number_literal});
+    try testTokenize("0xD", &.{.number_literal});
+    try testTokenize("0xE", &.{.number_literal});
+    try testTokenize("0xF", &.{.number_literal});
+    try testTokenize("0x10", &.{.number_literal});
+    try testTokenize("0x1F", &.{.number_literal});
+    try testTokenize("0xFF", &.{.number_literal});
+    try testTokenize("0xFFF", &.{.number_literal});
+}
+
+test "string literals" {
+    try testTokenize("\"Hello, World!\"", &.{.string_literal});
+}
+
+test "scientific notation" {
+    try testTokenize("3.0e5", &.{.float_literal});
+    try testTokenize("2.5e-3", &.{.float_literal});
+    try testTokenize("6.022e23", &.{.float_literal});
+
+    try testTokenize("1e3", &.{.number_literal});
+    try testTokenize("4E-2", &.{.number_literal});
+    try testTokenize("0.123e+4", &.{.float_literal});
+    try testTokenize("7.77e7", &.{.float_literal});
+    try testTokenize("9.999E-6", &.{.float_literal});
 }
