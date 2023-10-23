@@ -40,6 +40,7 @@ pub const Token = struct {
         keyword_or,
         // Operators
         Mul,
+        MulEqual,
         Div,
         Mod,
         Add,
@@ -101,6 +102,7 @@ pub const Tokenizer = struct {
     index: usize,
     current_token: ?Token,
     Allocation: std.heap.ArenaAllocator,
+    tokens_count: usize = 0,
 
     pub fn dump(self: *Tokenizer, token: *const Token) void {
         _ = self;
@@ -199,7 +201,7 @@ pub const Tokenizer = struct {
                     index += 1;
                 },
                 '+' => {
-                    if (self.source[index + 1] == '=') {
+                    if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "+=";
                         result.kind = .AddEqual;
                         index += 2;
@@ -210,7 +212,7 @@ pub const Tokenizer = struct {
                     }
                 },
                 '-' => {
-                    if (self.source[index + 1] == '=') {
+                    if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "-=";
                         result.kind = .SubEqual;
                         index += 2;
@@ -220,10 +222,17 @@ pub const Tokenizer = struct {
                         index += 1;
                     }
                 },
+
                 '*' => {
-                    result.kind = .Mul;
-                    result.lexeme = "*";
-                    index += 1;
+                    if (index + 1 < self.source.len and self.source[index + 1] == '=') {
+                        result.lexeme = "*=";
+                        result.kind = .MulEqual;
+                        index += 2;
+                    } else {
+                        result.kind = .Mul;
+                        result.lexeme = "*";
+                        index += 1;
+                    }
                 },
                 '/' => {
                     result.kind = .Div;
@@ -236,7 +245,7 @@ pub const Tokenizer = struct {
                     index += 1;
                 },
                 '<' => {
-                    if (self.source[index + 1] == '=') {
+                    if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "<=";
                         result.kind = .LessThanEqual;
                         index += 2;
@@ -247,7 +256,7 @@ pub const Tokenizer = struct {
                     }
                 },
                 '>' => {
-                    if (self.source[index + 1] == '=') {
+                    if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = ">=";
                         result.kind = .GreaterThanEqual;
                         index += 2;
@@ -258,7 +267,7 @@ pub const Tokenizer = struct {
                     }
                 },
                 '=' => {
-                    if (self.source[index + 1] == '=') {
+                    if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "==";
                         result.kind = .EqualEqual;
                         index += 2;
@@ -269,7 +278,7 @@ pub const Tokenizer = struct {
                     }
                 },
                 '!' => {
-                    if (self.source[index + 1] == '=') {
+                    if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "!=";
                         result.kind = .BangEqual;
                         index += 2;
@@ -358,8 +367,60 @@ pub const Tokenizer = struct {
 
             if (result.kind != .eof) {
                 try tokens.append(result);
+                self.current_token = tokens.items[tokens.items.len - 1];
+                self.tokens_count += 1;
             }
         }
+        try tokens.append(Token{ .kind = .eof, .lexeme = "EOF", .location = .{
+            .end = self.source.len,
+            .start = self.source.len,
+        } });
+        self.tokens_count += 1;
         return tokens;
     }
 };
+
+fn testTokenize(source: []const u8, expected_token_tags: []const Token.Kind) !void {
+    var tokenizer = Tokenizer.init(source);
+    var tokens = try tokenizer.tokenize();
+
+    const num_tokens = expected_token_tags.len + 1;
+    const num_actual_tokens = tokenizer.tokens_count;
+    try std.testing.expectEqual(num_tokens, num_actual_tokens);
+
+    for (expected_token_tags, 0..) |expected_token_tag, i| {
+        try std.testing.expectEqual(expected_token_tag, tokens.items[i].kind);
+    }
+
+    try std.testing.expectEqual(Token.Kind.eof, tokens.items[num_tokens - 1].kind);
+}
+
+test "char" {
+    try testTokenize("let x: char = 'a';", &.{ .keyword_let, .identifier, .colon, .char, .Equal, .char_literal, .semicolon });
+}
+
+test "operators" {
+    try testTokenize("+=", &.{.AddEqual});
+    try testTokenize("+", &.{.Add});
+
+    try testTokenize("-=", &.{.SubEqual});
+    try testTokenize("-", &.{.Sub});
+
+    try testTokenize("*=", &.{.MulEqual});
+    try testTokenize("*", &.{.Mul});
+
+    try testTokenize("/", &.{.Div});
+
+    try testTokenize("%", &.{.Mod});
+
+    try testTokenize("<", &.{.LessThan});
+    try testTokenize("<=", &.{.LessThanEqual});
+
+    try testTokenize(">", &.{.GreaterThan});
+    try testTokenize(">=", &.{.GreaterThanEqual});
+
+    try testTokenize("==", &.{.EqualEqual});
+    try testTokenize("=", &.{.Equal});
+
+    try testTokenize("!=", &.{.BangEqual});
+}

@@ -15,3 +15,7 @@ pub fn main() !void {
         tok.dump(&t);
     }
 }
+
+test "tokenize" {
+    _ = @import("tokenizer.zig");
+}
