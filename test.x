@@ -1,9 +1,16 @@
-const S: float = 3.0e5;
-const T: float = 2.5e-3;
-const HEX: int = 0x12;
-const HEX2: int = 0xFF;
-const HEX3: int = 0x10;
-const HEX4: int = 0x1F;
-const HEX5: int = 0xFF;
-const HEX6: int = 0xFFF;
-const A: int = 0xe;
+
+
+
+fn fizzBuzz(): void {
+    for (0..) |i| {
+        if (i % 3 == 0 and i % 5 == 0) {
+            println("FizzBuzz");
+        } else if (i % 3 == 0) {
+            println("Fizz");
+        } else if (i % 5 == 0) {
+            println("Buzz");
+        } else {
+            println("%d", i);
+        }
+    }
+}

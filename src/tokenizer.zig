@@ -22,6 +22,7 @@ pub const Token = struct {
         char,
         string,
         bool,
+        void,
         //Keywords
         keyword_fn,
         keyword_if,
@@ -39,7 +40,7 @@ pub const Token = struct {
         keyword_and,
         keyword_or,
         // Operators
-        Mul,
+        Multiply,
         MulEqual,
         Div,
         Mod,
@@ -56,6 +57,7 @@ pub const Token = struct {
         Equal,
         Bang,
         QuestionMark,
+        dotdot,
         // delimiters
         comma,
         semicolon,
@@ -90,6 +92,7 @@ pub const Token = struct {
         .{ "int", .int },
         .{ "char", .char },
         .{ "string", .string },
+        .{ "void", .void },
     });
 
     pub fn getKeyword(lexeme: []const u8) ?Kind {
@@ -196,9 +199,15 @@ pub const Tokenizer = struct {
                     index += 1;
                 },
                 '.' => {
-                    result.kind = .dot;
-                    result.lexeme = ".";
-                    index += 1;
+                    if (index + 1 < self.source.len and self.source[index + 1] == '.') {
+                        result.lexeme = "..";
+                        result.kind = .dotdot;
+                        index += 2;
+                    } else {
+                        result.kind = .dot;
+                        result.lexeme = ".";
+                        index += 1;
+                    }
                 },
                 '+' => {
                     if (index + 1 < self.source.len and self.source[index + 1] == '=') {
@@ -229,7 +238,7 @@ pub const Tokenizer = struct {
                         result.kind = .MulEqual;
                         index += 2;
                     } else {
-                        result.kind = .Mul;
+                        result.kind = .Multiply;
                         result.lexeme = "*";
                         index += 1;
                     }
@@ -302,7 +311,7 @@ pub const Tokenizer = struct {
                     var start = index;
 
                     while (index < self.source.len and (((self.source[index] >= '0' and self.source[index] <= '9') or
-                        (self.source[index] == '.' and !isFloat)) or
+                        (self.source[index] == '.' and !isFloat) and self.source[index + 1] != '.') or
                         (self.source[index] == 'x' and (index - start) == 1) or
                         (self.source[index] == '+' or self.source[index] == '-') or
                         ((self.source[index] == 'e' or self.source[index] == 'E')) or (std.ascii.isHex(self.source[index]) and (index - start) > 1 and !isFloat))) : (index += 1)
@@ -422,7 +431,7 @@ test "operators" {
     try testTokenize("-", &.{.Sub});
 
     try testTokenize("*=", &.{.MulEqual});
-    try testTokenize("*", &.{.Mul});
+    try testTokenize("*", &.{.Multiply});
 
     try testTokenize("/", &.{.Div});
 
@@ -483,4 +492,12 @@ test "scientific notation" {
     try testTokenize("0.123e+4", &.{.float_literal});
     try testTokenize("7.77e7", &.{.float_literal});
     try testTokenize("9.999E-6", &.{.float_literal});
+}
+
+test "complex expressions" {
+    try testTokenize("3 * (4 + 2) / (1 - 5)", &.{ .number_literal, .Multiply, .LeftParen, .number_literal, .Add, .number_literal, .RightParen, .Div, .LeftParen, .number_literal, .Sub, .number_literal, .RightParen });
+}
+
+test "reserved keywords" {
+    try testTokenize("const if else while for return", &.{ .keyword_const, .keyword_if, .keyword_else, .keyword_while, .keyword_for, .keyword_return });
 }
