@@ -351,8 +351,6 @@ pub const Tokenizer = struct {
                         if (self.source[index] == '"') {
                             index += 1;
                             break;
-                        } else {
-                            return error.unterminated_string_literal;
                         }
                         index += 1;
                     }
@@ -397,6 +395,17 @@ fn testTokenize(source: []const u8, expected_token_tags: []const Token.Kind) !vo
 
 test "char" {
     try testTokenize("let x: char = 'a';", &.{ .keyword_let, .identifier, .colon, .char, .Equal, .char_literal, .semicolon });
+}
+
+test "Numbers" {
+    try testTokenize("let x: float = 1.0;", &.{ .keyword_let, .identifier, .colon, .float, .Equal, .float_literal, .semicolon });
+    try testTokenize("let y: int = 1;", &.{ .keyword_let, .identifier, .colon, .int, .Equal, .number_literal, .semicolon });
+
+    try testTokenize("123456789", &.{.number_literal});
+}
+
+test "string" {
+    try testTokenize("let x: string = \"foo\";", &.{ .keyword_let, .identifier, .colon, .string, .Equal, .string_literal, .semicolon });
 }
 
 test "operators" {

@@ -4,3 +4,5 @@ const F: int = 1892478923472348;
 const X: char = 'x';
 const Y: char = 'y';
 const Z: char = 'z';
+const A: string = "a";
+const B: string = "b";

@@ -16,6 +16,6 @@ pub fn main() !void {
     }
 }
 
-test "tokenize" {
+test "tests" {
     _ = @import("tokenizer.zig");
 }
