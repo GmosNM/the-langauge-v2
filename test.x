@@ -1,16 +1,12 @@
 
 
 
-fn fizzBuzz(): void {
-    for (0..) |i| {
-        if (i % 3 == 0 and i % 5 == 0) {
-            println("FizzBuzz");
-        } else if (i % 3 == 0) {
-            println("Fizz");
-        } else if (i % 5 == 0) {
-            println("Buzz");
-        } else {
-            println("%d", i);
-        }
-    }
+let x: []int = [];
+
+x << 10;
+x << 1;
+
+for (x) |i|{
+    # should be 10\n 1
+    println(i);
 }

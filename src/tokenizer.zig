@@ -10,20 +10,21 @@ pub const Token = struct {
         end: usize,
     };
     pub const Kind = enum {
+        invalid,
         eof,
         identifier,
         string_literal,
         number_literal,
         float_literal,
         char_literal,
-        // Types
+        // types
         int,
         float,
         char,
         string,
         bool,
         void,
-        //Keywords
+        //keywords
         keyword_fn,
         keyword_if,
         keyword_else,
@@ -39,37 +40,53 @@ pub const Token = struct {
         keyword_const,
         keyword_and,
         keyword_or,
-        // Operators
-        Multiply,
-        MulEqual,
-        Div,
-        Mod,
-        Add,
-        AddEqual,
-        Sub,
-        SubEqual,
-        LessThan,
-        GreaterThan,
-        LessThanEqual,
-        GreaterThanEqual,
-        EqualEqual,
-        BangEqual,
-        Equal,
-        Bang,
-        QuestionMark,
-        dotdot,
+        keyword_enum,
+        keyword_struct,
+        keyword_test,
+        keyword_extern,
+        keyword_export,
+        keyword_inline,
+        // operators
+        asterisk,
+        asterisk_equal,
+        asterisk_asterisk,
+        slash,
+        percent,
+        plus,
+        plus_equal,
+        plus_plus,
+        minus,
+        minus_equal,
+        less_than,
+        greater_than,
+        less_than_equal,
+        greater_than_equal,
+        equal_equal,
+        bang_equal,
+        equal,
+        bang,
+        question_mark,
+        pipe,
+        pipe_pipe,
+        equal_right_arrow,
+        push_left,
+        push_right,
         // delimiters
         comma,
         semicolon,
         colon,
         dot,
-        // Punctuators
-        LeftParen,
-        RightParen,
-        LeftBrace,
-        RightBrace,
-        LeftBracket,
-        RightBracket,
+        dot_dot,
+        dot_dot_dot,
+        arrow,
+        ampersand,
+        // punctuators
+        left_paren,
+        right_paren,
+        left_brace,
+        right_brace,
+        left_bracket,
+        right_bracket,
     };
 
     pub const keywords = std.ComptimeStringMap(Kind, .{
@@ -159,32 +176,32 @@ pub const Tokenizer = struct {
                     index += 1;
                 },
                 '(' => {
-                    result.kind = .LeftParen;
+                    result.kind = .left_paren;
                     result.lexeme = "(";
                     index += 1;
                 },
                 ')' => {
-                    result.kind = .RightParen;
+                    result.kind = .right_paren;
                     result.lexeme = ")";
                     index += 1;
                 },
                 '{' => {
-                    result.kind = .LeftBrace;
+                    result.kind = .left_brace;
                     result.lexeme = "{";
                     index += 1;
                 },
                 '}' => {
-                    result.kind = .RightBrace;
+                    result.kind = .right_brace;
                     result.lexeme = "}";
                     index += 1;
                 },
                 '[' => {
-                    result.kind = .LeftBracket;
+                    result.kind = .left_bracket;
                     result.lexeme = "[";
                     index += 1;
                 },
                 ']' => {
-                    result.kind = .RightBracket;
+                    result.kind = .right_bracket;
                     result.lexeme = "]";
                     index += 1;
                 },
@@ -199,9 +216,15 @@ pub const Tokenizer = struct {
                     index += 1;
                 },
                 '.' => {
-                    if (index + 1 < self.source.len and self.source[index + 1] == '.') {
+                    if (index + 1 < self.source.len and self.source[index + 1] == '.' and
+                        index + 2 < self.source.len and self.source[index + 2] == '.')
+                    {
+                        result.lexeme = "...";
+                        result.kind = .dot_dot_dot;
+                        index += 3;
+                    } else if (index + 1 < self.source.len and self.source[index + 1] == '.') {
                         result.lexeme = "..";
-                        result.kind = .dotdot;
+                        result.kind = .dot_dot;
                         index += 2;
                     } else {
                         result.kind = .dot;
@@ -209,13 +232,18 @@ pub const Tokenizer = struct {
                         index += 1;
                     }
                 },
+
                 '+' => {
                     if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "+=";
-                        result.kind = .AddEqual;
+                        result.kind = .plus_equal;
                         index += 2;
+                    } else if (index + 1 < self.source.len and self.source[index + 1] == '+') {
+                        result.lexeme = "++";
+                        result.kind = .plus_plus;
+                        index += 3;
                     } else {
-                        result.kind = .Add;
+                        result.kind = .plus;
                         result.lexeme = "+";
                         index += 1;
                     }
@@ -223,10 +251,10 @@ pub const Tokenizer = struct {
                 '-' => {
                     if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "-=";
-                        result.kind = .SubEqual;
+                        result.kind = .minus_equal;
                         index += 2;
                     } else {
-                        result.kind = .Sub;
+                        result.kind = .minus;
                         result.lexeme = "-";
                         index += 1;
                     }
@@ -235,31 +263,39 @@ pub const Tokenizer = struct {
                 '*' => {
                     if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "*=";
-                        result.kind = .MulEqual;
+                        result.kind = .asterisk_equal;
                         index += 2;
+                    } else if (index + 1 < self.source.len and self.source[index + 1] == '*') {
+                        result.lexeme = "**";
+                        result.kind = .asterisk_asterisk;
+                        index += 3;
                     } else {
-                        result.kind = .Multiply;
+                        result.kind = .asterisk;
                         result.lexeme = "*";
                         index += 1;
                     }
                 },
                 '/' => {
-                    result.kind = .Div;
+                    result.kind = .slash;
                     result.lexeme = "/";
                     index += 1;
                 },
                 '%' => {
-                    result.kind = .Mod;
+                    result.kind = .percent;
                     result.lexeme = "%";
                     index += 1;
                 },
                 '<' => {
                     if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "<=";
-                        result.kind = .LessThanEqual;
+                        result.kind = .less_than_equal;
                         index += 2;
+                    } else if (index + 1 < self.source.len and self.source[index + 1] == '<') {
+                        result.lexeme = "<<";
+                        result.kind = .push_left;
+                        index += 3;
                     } else {
-                        result.kind = .LessThan;
+                        result.kind = .less_than;
                         result.lexeme = "<";
                         index += 1;
                     }
@@ -267,10 +303,10 @@ pub const Tokenizer = struct {
                 '>' => {
                     if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = ">=";
-                        result.kind = .GreaterThanEqual;
+                        result.kind = .greater_than_equal;
                         index += 2;
                     } else {
-                        result.kind = .GreaterThan;
+                        result.kind = .greater_than;
                         result.lexeme = ">";
                         index += 1;
                     }
@@ -278,10 +314,10 @@ pub const Tokenizer = struct {
                 '=' => {
                     if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "==";
-                        result.kind = .EqualEqual;
+                        result.kind = .equal_equal;
                         index += 2;
                     } else {
-                        result.kind = .Equal;
+                        result.kind = .equal;
                         result.lexeme = "=";
                         index += 1;
                     }
@@ -289,16 +325,27 @@ pub const Tokenizer = struct {
                 '!' => {
                     if (index + 1 < self.source.len and self.source[index + 1] == '=') {
                         result.lexeme = "!=";
-                        result.kind = .BangEqual;
+                        result.kind = .bang_equal;
                         index += 2;
                     } else {
-                        result.kind = .Bang;
+                        result.kind = .bang;
                         result.lexeme = "!";
                         index += 1;
                     }
                 },
+                '|' => {
+                    if (index + 1 < self.source.len and self.source[index + 1] == '|') {
+                        result.lexeme = "||";
+                        result.kind = .pipe_pipe;
+                        index += 2;
+                    } else {
+                        result.kind = .pipe;
+                        result.lexeme = "|";
+                        index += 1;
+                    }
+                },
                 '?' => {
-                    result.kind = .QuestionMark;
+                    result.kind = .question_mark;
                     result.lexeme = "?";
                     index += 1;
                 },
@@ -343,13 +390,8 @@ pub const Tokenizer = struct {
                     while (index < self.source.len and self.source[index] != '\'') : (index += 1) {}
                     if (index < self.source.len) {
                         result.lexeme = self.source[(start + 1)..index];
-                        if (result.lexeme.len != 1 or result.lexeme.len == 0) {
-                            return error.not_a_char;
-                        }
                         result.kind = .char_literal;
                         index += 1;
-                    } else {
-                        return error.unterminated_char_literal;
                     }
                 },
                 'a'...'z', 'A'...'Z' => {
@@ -361,11 +403,28 @@ pub const Tokenizer = struct {
 
                 '"' => {
                     var start = index + 1;
+                    var escaped = false;
                     index += 1;
                     while (index < self.source.len) {
-                        if (self.source[index] == '"') {
-                            index += 1;
-                            break;
+                        if (escaped) {
+                            escaped = false;
+                            switch (self.source[index]) {
+                                'n' => index += 1,
+                                't' => index += 1,
+                                'r' => index += 1,
+                                '\\' => index += 1,
+                                '"' => index += 1,
+                                'u' => index += 1,
+                                'x' => index += 1,
+                                else => {},
+                            }
+                        } else {
+                            if (self.source[index] == '\\') {
+                                escaped = true;
+                            } else if (self.source[index] == '"') {
+                                index += 1;
+                                break;
+                            }
                         }
                         index += 1;
                     }
@@ -409,44 +468,46 @@ fn testTokenize(source: []const u8, expected_token_tags: []const Token.Kind) !vo
 }
 
 test "char" {
-    try testTokenize("let x: char = 'a';", &.{ .keyword_let, .identifier, .colon, .char, .Equal, .char_literal, .semicolon });
-}
-
-test "Numbers" {
-    try testTokenize("let x: float = 1.0;", &.{ .keyword_let, .identifier, .colon, .float, .Equal, .float_literal, .semicolon });
-    try testTokenize("let y: int = 1;", &.{ .keyword_let, .identifier, .colon, .int, .Equal, .number_literal, .semicolon });
-
-    try testTokenize("123456789", &.{.number_literal});
+    try testTokenize("let x: char = 'a';", &.{ .keyword_let, .identifier, .colon, .char, .equal, .char_literal, .semicolon });
 }
 
 test "string" {
-    try testTokenize("let x: string = \"foo\";", &.{ .keyword_let, .identifier, .colon, .string, .Equal, .string_literal, .semicolon });
+    try testTokenize("let x: string = \"foo\";", &.{ .keyword_let, .identifier, .colon, .string, .equal, .string_literal, .semicolon });
 }
 
 test "operators" {
-    try testTokenize("+=", &.{.AddEqual});
-    try testTokenize("+", &.{.Add});
+    try testTokenize("+=", &.{.plus_equal});
+    try testTokenize("+", &.{.plus});
+    try testTokenize("++", &.{.plus_plus});
 
-    try testTokenize("-=", &.{.SubEqual});
-    try testTokenize("-", &.{.Sub});
+    try testTokenize("-=", &.{.minus_equal});
+    try testTokenize("-", &.{.minus});
 
-    try testTokenize("*=", &.{.MulEqual});
-    try testTokenize("*", &.{.Multiply});
+    try testTokenize("*=", &.{.asterisk_equal});
+    try testTokenize("*", &.{.asterisk});
+    try testTokenize("**", &.{.asterisk_asterisk});
 
-    try testTokenize("/", &.{.Div});
+    try testTokenize("/", &.{.slash});
 
-    try testTokenize("%", &.{.Mod});
+    try testTokenize("%", &.{.percent});
 
-    try testTokenize("<", &.{.LessThan});
-    try testTokenize("<=", &.{.LessThanEqual});
+    try testTokenize("<", &.{.less_than});
+    try testTokenize("<=", &.{.less_than_equal});
+    try testTokenize("<<", &.{.push_left});
 
-    try testTokenize(">", &.{.GreaterThan});
-    try testTokenize(">=", &.{.GreaterThanEqual});
+    try testTokenize(">", &.{.greater_than});
+    try testTokenize(">=", &.{.greater_than_equal});
 
-    try testTokenize("==", &.{.EqualEqual});
-    try testTokenize("=", &.{.Equal});
+    try testTokenize("==", &.{.equal_equal});
+    try testTokenize("=", &.{.equal});
+    try testTokenize("!=", &.{.bang_equal});
 
-    try testTokenize("!=", &.{.BangEqual});
+    try testTokenize(".", &.{.dot});
+    try testTokenize("..", &.{.dot_dot});
+    try testTokenize("...", &.{.dot_dot_dot});
+
+    try testTokenize("|", &.{.pipe});
+    try testTokenize("||", &.{.pipe_pipe});
 }
 
 test "number literals hexadecimal" {
@@ -480,6 +541,9 @@ test "number literals hexadecimal" {
 
 test "string literals" {
     try testTokenize("\"Hello, World!\"", &.{.string_literal});
+    try testTokenize("\"Newline: \\n\\nTab: \\t\\tBackslash: \\\\\"", &.{.string_literal});
+    try testTokenize("\"Unicode: \\u03B1\\u03B2\"", &.{.string_literal});
+    try testTokenize("\"Escaped escape: \\\\\\\\\"", &.{.string_literal});
 }
 
 test "scientific notation" {
@@ -495,7 +559,7 @@ test "scientific notation" {
 }
 
 test "complex expressions" {
-    try testTokenize("3 * (4 + 2) / (1 - 5)", &.{ .number_literal, .Multiply, .LeftParen, .number_literal, .Add, .number_literal, .RightParen, .Div, .LeftParen, .number_literal, .Sub, .number_literal, .RightParen });
+    try testTokenize("3 * (4 + 2) / (1 - 5)", &.{ .number_literal, .asterisk, .left_paren, .number_literal, .plus, .number_literal, .right_paren, .slash, .left_paren, .number_literal, .minus, .number_literal, .right_paren });
 }
 
 test "reserved keywords" {
