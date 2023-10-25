@@ -1,5 +1,6 @@
 const std = @import("std");
 const tokenizer = @import("tokenizer.zig").Tokenizer;
+const parser = @import("parser.zig").Parser;
 
 pub fn read_file(filename: []const u8) ![]const u8 {
     var buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
@@ -9,11 +10,10 @@ pub fn read_file(filename: []const u8) ![]const u8 {
 
 pub fn main() !void {
     var source = try read_file("test.x");
-    var tok = tokenizer.init(source);
-    var token = try tok.tokenize();
-    for (token.items) |t| {
-        tok.dump(&t);
-    }
+    var alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    var par = try parser.init(source, "test.x", alloc.allocator());
+    try par.pushAll();
+    try par.parse();
 }
 
 test "tests" {

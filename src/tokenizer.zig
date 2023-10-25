@@ -6,6 +6,8 @@ pub const Token = struct {
     location: Location,
 
     pub const Location = struct {
+        line: usize,
+        column: usize,
         start: usize,
         end: usize,
     };
@@ -126,7 +128,7 @@ pub const Tokenizer = struct {
 
     pub fn dump(self: *Tokenizer, token: *const Token) void {
         _ = self;
-        std.debug.print("{s} \"{s}\"\n", .{ @tagName(token.kind), token.lexeme });
+        std.debug.print("{s} \"{s}\" Location: Col: {} Line: {}\n", .{ @tagName(token.kind), token.lexeme, token.location.column, token.location.line });
     }
 
     pub fn init(source: []const u8) Tokenizer {
@@ -161,15 +163,30 @@ pub const Tokenizer = struct {
     pub fn tokenize(self: *Tokenizer) !std.ArrayList(Token) {
         var tokens = std.ArrayList(Token).init(self.Allocation.allocator());
         var index: usize = 0;
+        var col: usize = 1;
+        var line: usize = 1;
 
         while (index < self.source.len) {
             var result: Token = Token{
                 .kind = .eof,
                 .lexeme = "",
-                .location = .{ .start = index, .end = index },
+                .location = .{ .start = index, .end = index, .line = line, .column = col },
             };
 
             switch (self.source[index]) {
+                ' ', '\r' => {
+                    col += 1;
+                    index += 1;
+                },
+                '\t' => {
+                    col += 4;
+                    index += 1;
+                },
+                '\n' => {
+                    line += 1;
+                    col = 0;
+                    index += 1;
+                },
                 ':' => {
                     result.kind = .colon;
                     result.lexeme = ":";
@@ -434,9 +451,10 @@ pub const Tokenizer = struct {
 
                 else => {
                     index += 1;
+                    result.location.column += 1;
                 },
             }
-
+            col = index;
             if (result.kind != .eof) {
                 try tokens.append(result);
                 self.current_token = tokens.items[tokens.items.len - 1];
@@ -446,6 +464,8 @@ pub const Tokenizer = struct {
         try tokens.append(Token{ .kind = .eof, .lexeme = "EOF", .location = .{
             .end = self.source.len,
             .start = self.source.len,
+            .column = col,
+            .line = line,
         } });
         self.tokens_count += 1;
         return tokens;
