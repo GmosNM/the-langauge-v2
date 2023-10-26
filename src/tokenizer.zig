@@ -140,22 +140,22 @@ pub const Tokenizer = struct {
         };
     }
 
-    pub fn isWhitespace(self: *Tokenizer, char: u8) bool {
+    fn isWhitespace(self: *Tokenizer, char: u8) bool {
         _ = self;
         return char == ' ' or char == '\t' or char == '\r' or char == '\n';
     }
 
-    pub fn isDigit(self: *Tokenizer, char: u8) bool {
+    fn isDigit(self: *Tokenizer, char: u8) bool {
         _ = self;
         return char >= '0' and char <= '9';
     }
 
-    pub fn isAlpha(self: *Tokenizer, char: u8) bool {
+    fn isAlpha(self: *Tokenizer, char: u8) bool {
         _ = self;
         return (char >= 'a' and char <= 'z') or (char >= 'A' and char <= 'Z');
     }
 
-    pub fn isPunctuator(self: *Tokenizer, char: u8) bool {
+    fn isPunctuator(self: *Tokenizer, char: u8) bool {
         _ = self;
         return char == ':' or char == '(' or char == ')' or char == '{' or char == '}' or char == ';';
     }
@@ -184,7 +184,7 @@ pub const Tokenizer = struct {
                 },
                 '\n' => {
                     line += 1;
-                    col = 0;
+                    col = 1;
                     index += 1;
                 },
                 ':' => {
@@ -454,7 +454,6 @@ pub const Tokenizer = struct {
                     result.location.column += 1;
                 },
             }
-            col = index;
             if (result.kind != .eof) {
                 try tokens.append(result);
                 self.current_token = tokens.items[tokens.items.len - 1];
@@ -468,6 +467,7 @@ pub const Tokenizer = struct {
             .line = line,
         } });
         self.tokens_count += 1;
+        col = index;
         return tokens;
     }
 };

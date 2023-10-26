@@ -14,6 +14,8 @@ pub fn main() !void {
     var par = try parser.init(source, "test.x", alloc.allocator());
     try par.pushAll();
     try par.parse();
+
+    defer par.deinit();
 }
 
 test "tests" {

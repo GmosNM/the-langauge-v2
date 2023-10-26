@@ -2,8 +2,8 @@ const std = @import("std");
 const tokenizer = @import("tokenizer.zig").Tokenizer;
 const token = @import("tokenizer.zig").Token;
 const assert = std.debug.assert;
-const ast = @import("ast.zig");
 const File = std.fs.File;
+const SymbolTable = @import("symbol_table.zig").symbol_table;
 
 pub const Parser = struct {
     tokens_: std.ArrayList(token),
@@ -11,9 +11,9 @@ pub const Parser = struct {
     allocator: std.mem.Allocator,
     token_i: usize,
     token_kinds: []const token.Kind,
-    node_list: std.ArrayList(ast.Node),
     source: []const u8,
     file_name: []const u8,
+    symbol_table: SymbolTable,
 
     const Error = error{
         invalid_token,
@@ -27,9 +27,9 @@ pub const Parser = struct {
             .allocator = allocator,
             .token_i = 0,
             .token_kinds = undefined,
-            .node_list = std.ArrayList(ast.Node).init(allocator),
             .source = source,
             .file_name = filename,
+            .symbol_table = try SymbolTable.init(allocator),
         };
     }
 
@@ -39,66 +39,45 @@ pub const Parser = struct {
         for (tokens.items) |t| {
             try self.tokens_.append(t);
         }
-    }
-
-    pub fn parseType(self: *Parser) !void {
-        switch (self.current.kind) {
-            .int => {
-                try self.consume(.int);
-            },
-            .float => {
-                try self.consume(.float);
-            },
-            .char => {
-                try self.consume(.char);
-            },
-            .string => {
-                try self.consume(.string);
-            },
-            .void => {
-                try self.consume(.void);
-            },
-            .bool => {
-                try self.consume(.bool);
-            },
-            else => {
-                std.debug.print("expected type\n", .{});
-            },
+        for (self.tokens_.items) |t| {
+            std.debug.print("{s} \"{s}\" Location: Col: {} Line: {}\n", .{ @tagName(t.kind), t.lexeme, t.location.column, t.location.line });
         }
     }
 
     pub fn parse(self: *Parser) !void {
+        try self.next();
         for (self.tokens_.items) |t| {
             switch (t.kind) {
+                .eof => {
+                    break;
+                },
                 .keyword_let => {
-                    try self.consume(.keyword_let);
+                    const var_name = self.current.lexeme;
                     try self.consume(.identifier);
                     try self.consume(.colon);
-                    try self.parseType();
-                    try self.consume(.equal);
                     try self.consume(.int);
+                    try self.consume(.equal);
+                    var value = self.current.lexeme;
+                    try self.consume(.number_literal);
+                    try self.consume(.semicolon);
+                    try self.symbol_table.addVariable(var_name, value);
+                },
+                .identifier => {
+                    std.debug.print("Current kind: {s}\n", .{@tagName(self.current.kind)});
                 },
                 else => {},
             }
         }
         std.debug.print("parsed {d} tokens\n", .{self.token_i});
-        try self.printAst();
+        self.symbol_table.print();
     }
 
-    pub fn printAst(self: *Parser) !void {
-        for (self.node_list.items) |node| {
-            std.debug.print("{}", .{node});
-        }
+    pub fn deinit(self: *Parser) void {
+        self.tokens_.deinit();
     }
 
-    pub fn nextToken(p: *Parser) !token {
-        if (p.token_i < p.tokens_.items.len) {
-            return p.current;
-        } else {
-            std.debug.print("out of tokens\n", .{});
-            p.current = token{ .kind = .invalid, .lexeme = "", .location = .{ .start = 0, .end = 0, .line = 0, .column = 0 } };
-            return error.out_of_tokens;
-        }
+    pub fn getNextToken(self: *Parser) token {
+        return self.tokens_.items[self.token_i + 1];
     }
 
     pub fn next(self: *Parser) !void {
@@ -138,7 +117,7 @@ pub const Parser = struct {
         const col = self.current.location.column;
         var line_string = try self.getLineToString(line);
 
-        std.debug.print("\t{s}\t", .{line_string});
+        std.debug.print("{s}\n", .{line_string});
         for (0..col) |i| {
             _ = i;
             std.debug.print("~", .{});
@@ -147,9 +126,10 @@ pub const Parser = struct {
     }
 
     pub fn consume(self: *Parser, kind: token.Kind) !void {
-        self.current = self.tokens_.items[self.token_i];
         if (self.current.kind == kind) {
             self.current = self.tokens_.items[self.token_i];
+            self.current.location.line = self.tokens_.items[self.token_i].location.line;
+            self.current.location.column = self.tokens_.items[self.token_i].location.column;
             try self.next();
         } else {
             const expected_kind_name = @tagName(kind);
