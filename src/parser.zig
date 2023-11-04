@@ -1,9 +1,20 @@
+<<<<<<< HEAD
 const std = @import("std");
 const tokenizer = @import("tokenizer.zig").Tokenizer;
 const token = @import("tokenizer.zig").Token;
 const assert = std.debug.assert;
 const File = std.fs.File;
 const SymbolTable = @import("symbol_table.zig").symbol_table;
+=======
+const Self = @This();
+const ast = @import("ast.zig").ast;
+const node = @import("ast.zig").Node;
+const std = @import("std");
+const tokenizer = @import("lexer.zig").Tokenizer;
+const token = @import("lexer.zig").Token;
+const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;
+>>>>>>> 8651675 (some fixes)
 
 pub const Parser = struct {
     tokens_: std.ArrayList(token),
@@ -13,7 +24,11 @@ pub const Parser = struct {
     token_kinds: []const token.Kind,
     source: []const u8,
     file_name: []const u8,
+<<<<<<< HEAD
     symbol_table: SymbolTable,
+=======
+    ast: ast,
+>>>>>>> 8651675 (some fixes)
 
     const Error = error{
         invalid_token,
@@ -29,7 +44,11 @@ pub const Parser = struct {
             .token_kinds = undefined,
             .source = source,
             .file_name = filename,
+<<<<<<< HEAD
             .symbol_table = try SymbolTable.init(allocator),
+=======
+            .ast = ast.init(allocator),
+>>>>>>> 8651675 (some fixes)
         };
     }
 
@@ -52,6 +71,14 @@ pub const Parser = struct {
                     break;
                 },
                 .keyword_let => {
+<<<<<<< HEAD
+=======
+                    if (self.current.kind == .keyword_let) {
+                        const var_name = self.current.lexeme;
+                        _ = var_name;
+                        try self.consume(.keyword_let);
+                    }
+>>>>>>> 8651675 (some fixes)
                     const var_name = self.current.lexeme;
                     try self.consume(.identifier);
                     try self.consume(.colon);
@@ -60,7 +87,16 @@ pub const Parser = struct {
                     var value = self.current.lexeme;
                     try self.consume(.number_literal);
                     try self.consume(.semicolon);
+<<<<<<< HEAD
                     try self.symbol_table.addVariable(var_name, value);
+=======
+                    const v: node = node{ .VariableDecl = .{
+                        .name = var_name,
+                        .Type = .string,
+                        .value = value,
+                    } };
+                    try self.ast.push(v);
+>>>>>>> 8651675 (some fixes)
                 },
                 .identifier => {
                     std.debug.print("Current kind: {s}\n", .{@tagName(self.current.kind)});
@@ -69,7 +105,10 @@ pub const Parser = struct {
             }
         }
         std.debug.print("parsed {d} tokens\n", .{self.token_i});
+<<<<<<< HEAD
         self.symbol_table.print();
+=======
+>>>>>>> 8651675 (some fixes)
     }
 
     pub fn deinit(self: *Parser) void {
@@ -81,6 +120,12 @@ pub const Parser = struct {
     }
 
     pub fn next(self: *Parser) !void {
+<<<<<<< HEAD
+=======
+        if (self.token_i >= self.tokens_.items.len) {
+            return;
+        }
+>>>>>>> 8651675 (some fixes)
         self.token_i += 1;
         self.current = self.tokens_.items[self.token_i];
     }
