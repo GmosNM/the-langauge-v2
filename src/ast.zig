@@ -28,7 +28,7 @@ pub const Operator = enum {
 pub const VariableDecl = struct {
     name: []const u8,
     Type: Types,
-    value: []const u8,
+    value: Expression,
 };
 
 pub const Body = struct {
@@ -43,7 +43,8 @@ pub const FunctionDecl = struct {
 };
 
 pub const Expr = union(enum) {
-    VariableDecl: VariableDecl,
+    VariableReference: VariableReference,
+    LiteralExpr: LiteralExpr,
 };
 
 pub const BinaryExpr = struct {
@@ -65,15 +66,22 @@ pub const Expression = union(enum) {
     BinaryExpr: BinaryExpr,
     UnaryExpr: UnaryExpr,
     LiteralExpr: LiteralExpr,
+    VariableReference: VariableReference,
 };
 
 pub const ReturnStmt = struct {
     Value: Expression,
 };
 
+pub const VariableReference = struct {
+    name: []const u8,
+    value_type: Types,
+};
+
 pub const Node = union(enum) {
     Leaf: i32,
     VariableDecl: VariableDecl,
+    VariableReference: VariableReference,
     FunctionDecl: FunctionDecl,
     Body: Body,
     ReturnStmt: ReturnStmt,
@@ -105,10 +113,12 @@ pub const ast = struct {
                     std.debug.print("Leaf: {}\n", .{leaf});
                 },
                 .VariableDecl => |variable| {
-                    var name = variable.name;
-                    var value = variable.value;
-                    var t = @tagName(variable.Type);
-                    std.debug.print("{s}: name: {s}, value: \"{s}\", Type: {s}\n", .{ @tagName(node), name, value, t });
+                    _ = variable;
+                },
+                .VariableReference => |variable| {
+                    var v_name = variable.name;
+                    var v_type = @tagName(variable.value_type);
+                    std.debug.print("{s}: name: {s}, Type: {s}\n", .{ @tagName(node), v_name, v_type });
                 },
                 .FunctionDecl => |function| {
                     var name = function.name;
@@ -125,10 +135,50 @@ pub const ast = struct {
                                 std.debug.print("\t\tLeaf: {}\n", .{leaf});
                             },
                             .VariableDecl => |variable| {
-                                var var_name = variable.name;
+                                std.debug.print("\t\tVariableDecl: \n", .{});
+                                var v_name = variable.name;
+                                _ = v_name;
                                 var value = variable.value;
-                                var t = @tagName(variable.Type);
-                                std.debug.print("\t\t{s}: name: {s}, value: \"{s}\", Type: {s}\n", .{ @tagName(body_node), var_name, value, t });
+                                switch (value) {
+                                    .BinaryExpr => |binaryExpr| {
+                                        var left = binaryExpr.left;
+                                        var right = binaryExpr.right;
+                                        var operator = @tagName(binaryExpr.operator);
+                                        switch (left) {
+                                            .VariableReference => |vars| {
+                                                var vs_name = vars.name;
+                                                var v_type = @tagName(vars.value_type);
+                                                std.debug.print("\t\t\tLeft: name: {s}, ValueType: {s}\n", .{ vs_name, v_type });
+                                            },
+                                            .LiteralExpr => |literalExpr| {
+                                                var expr_value = literalExpr.value;
+                                                std.debug.print("\t\t\tLeft: Value: {s}\n", .{expr_value});
+                                            },
+                                        }
+                                        std.debug.print("\t\t\tOperator: {s}\n", .{operator});
+                                        switch (right) {
+                                            .VariableReference => |vars| {
+                                                var vs_name = vars.name;
+                                                var v_type = @tagName(vars.value_type);
+                                                std.debug.print("\t\t\tRight: name: {s}, ValueType: {s}\n", .{ vs_name, v_type });
+                                            },
+                                            .LiteralExpr => |literalExpr| {
+                                                var expr_value = literalExpr.value;
+                                                std.debug.print("\t\t\tRight: Value: {s}\n", .{expr_value});
+                                            },
+                                        }
+                                    },
+                                    .LiteralExpr => |literalExpr| {
+                                        var expr_value = literalExpr.value;
+                                        std.debug.print("\t\t\tValue: {s}\n", .{expr_value});
+                                    },
+                                    else => {},
+                                }
+                            },
+                            .VariableReference => |variable| {
+                                var v_name = variable.name;
+                                var v_type = @tagName(variable.value_type);
+                                std.debug.print("\t\t{s}: name: {s}, ValueType: {s}\n", .{ @tagName(body_node), v_name, v_type });
                             },
                             .ReturnStmt => |returnStmt| {
                                 std.debug.print("\t\tReturnStmt: \n", .{});
@@ -137,18 +187,28 @@ pub const ast = struct {
                                     .BinaryExpr => |binaryExpr| {
                                         var left = binaryExpr.left;
                                         var right = binaryExpr.right;
+                                        var operator = @tagName(binaryExpr.operator);
                                         switch (left) {
-                                            .VariableDecl => |variable| {
-                                                var var_name = variable.name;
-                                                var t = @tagName(variable.Type);
-                                                std.debug.print("\t\t\tLeft: {s}: name: {s}, Type: {s}\n", .{ @tagName(body_node), var_name, t });
+                                            .VariableReference => |variable| {
+                                                var v_name = variable.name;
+                                                var v_type = @tagName(variable.value_type);
+                                                std.debug.print("\t\t\tLeft: {s}: name: {s}, ValueType: {s}\n", .{ @tagName(body_node), v_name, v_type });
+                                            },
+                                            .LiteralExpr => |literalExpr| {
+                                                var expr_value = literalExpr.value;
+                                                std.debug.print("\t\t\tLeft: {s}: Value: {s}\n", .{ @tagName(body_node), expr_value });
                                             },
                                         }
+                                        std.debug.print("\t\t\tOperator: {s}\n", .{operator});
                                         switch (right) {
-                                            .VariableDecl => |variable| {
-                                                var var_name = variable.name;
-                                                var t = @tagName(variable.Type);
-                                                std.debug.print("\t\t\tRight: {s}: name: {s}, Type: {s}\n", .{ @tagName(body_node), var_name, t });
+                                            .VariableReference => |variable| {
+                                                var v_name = variable.name;
+                                                var v_type = @tagName(variable.value_type);
+                                                std.debug.print("\t\t\tRight: {s}: name: {s}, ValueType: {s}\n", .{ @tagName(body_node), v_name, v_type });
+                                            },
+                                            .LiteralExpr => |literalExpr| {
+                                                var expr_value = literalExpr.value;
+                                                std.debug.print("\t\t\tRight: {s}: Value: {s}\n", .{ @tagName(body_node), expr_value });
                                             },
                                         }
                                     },
@@ -159,6 +219,11 @@ pub const ast = struct {
                                     .UnaryExpr => |unaryExpr| {
                                         var operand = unaryExpr.operand;
                                         _ = operand;
+                                    },
+                                    .VariableReference => |variable| {
+                                        var v_name = variable.name;
+                                        var v_type = @tagName(variable.value_type);
+                                        std.debug.print("\t\t\tVariableReference: name: {s}, ValueType: {s}\n", .{ v_name, v_type });
                                     },
                                 }
                             },

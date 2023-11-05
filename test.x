@@ -1,10 +1,8 @@
 
 
-let x: int = 10;
-let y: int = 20;
-
 fn main(): int{
-    let x: int = 10;
+    let x: int = 10 + 10;
     let y: int = 20;
-    return x;
+    x = 20;
+    return 1 * 10;
 }

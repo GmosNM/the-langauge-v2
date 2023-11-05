@@ -105,8 +105,41 @@ pub const Parser = struct {
         }
     }
 
+    // number | string | float | true | false
+    fn parseValueType(self: *Parser) !vv.Types {
+        switch (self.current.kind) {
+            .number_literal => {
+                try self.consume(.number_literal);
+                return .int;
+            },
+            .string_literal => {
+                try self.consume(.string_literal);
+                return .string;
+            },
+            .float_literal => {
+                try self.consume(.float_literal);
+                return .float;
+            },
+            .keyword_true, .keyword_false => {
+                try self.consume(.keyword_true);
+                return .bool;
+            },
+            .identifier => {
+                try self.consume(.identifier);
+                return .void;
+            },
+            else => {
+                std.debug.print("|parseValue| Unexpected token: {s}\n", .{self.current.lexeme});
+                try self.PrintError();
+                return Error.invalid_token;
+            },
+        }
+        return .void;
+    }
+
     // let var_name : type = value;
     fn parseVariableDecl(self: *Parser) !node {
+        var expr: vv.Expression = undefined;
         if (self.current.kind == .keyword_let) {
             try self.consume(.keyword_let);
         }
@@ -118,13 +151,13 @@ pub const Parser = struct {
         if (self.current.kind == .equal) {
             try self.consume(.equal);
             value = self.current.lexeme;
-            try self.parseValue();
+            expr = try self.parseExpression();
         }
         try self.expectSimicolon();
         const v = node{ .VariableDecl = .{
             .name = var_name,
             .Type = var_type,
-            .value = value,
+            .value = expr,
         } };
         return v;
     }
@@ -147,17 +180,126 @@ pub const Parser = struct {
         return args;
     }
 
+    fn isOperator(self: *Parser) bool {
+        switch (self.current.kind) {
+            .plus, .minus, .asterisk, .slash => {
+                return true;
+            },
+            else => {
+                return false;
+            },
+        }
+        return false;
+    }
+
+    fn getOperator(self: *Parser) !vv.Operator {
+        switch (self.current.kind) {
+            .plus => {
+                try self.consume(.plus);
+                return .plus;
+            },
+            .minus => {
+                try self.consume(.minus);
+                return .minus;
+            },
+            .asterisk => {
+                try self.consume(.asterisk);
+                return .multiply;
+            },
+            .slash => {
+                try self.consume(.slash);
+                return .divide;
+            },
+            else => {
+                std.debug.print("|getOperator| Unexpected token: {s}\n", .{self.current.lexeme});
+            },
+        }
+        return .plus;
+    }
+
+    fn parseExpression(self: *Parser) !vv.Expression {
+        switch (self.current.kind) {
+            .number_literal => {
+                var value = self.current.lexeme;
+                var left = vv.Expr{ .LiteralExpr = .{
+                    .value = value,
+                } };
+                var v = vv.Expression{ .LiteralExpr = .{
+                    .value = self.current.lexeme,
+                } };
+                try self.consume(.number_literal);
+                if (self.isOperator()) {
+                    var op = try self.getOperator();
+                    var right = vv.Expr{ .LiteralExpr = .{
+                        .value = value,
+                    } };
+                    try self.consume(.number_literal);
+                    var v2 = vv.Expression{ .BinaryExpr = .{
+                        .left = left,
+                        .operator = op,
+                        .right = right,
+                    } };
+                    return v2;
+                }
+                return v;
+            },
+            .string_literal => {
+                var v = vv.Expression{ .LiteralExpr = .{
+                    .value = self.current.lexeme,
+                } };
+                try self.consume(.string_literal);
+                return v;
+            },
+            .float_literal => {
+                var v = vv.Expression{ .LiteralExpr = .{
+                    .value = self.current.lexeme,
+                } };
+                try self.consume(.float_literal);
+                return v;
+            },
+            .identifier => {
+                var v = vv.Expression{
+                    .VariableReference = .{
+                        .name = self.current.lexeme,
+                        .value_type = .void,
+                    },
+                };
+                try self.consume(.identifier);
+                return v;
+            },
+            else => {
+                std.debug.print("|parseExpression| Unexpected token: {s}\n", .{self.current.lexeme});
+            },
+        }
+        return vv.Expression{
+            .VariableReference = .{
+                .name = self.current.lexeme,
+                .value_type = .void,
+            },
+        };
+    }
+
     fn parseReturn(self: *Parser) !node {
         try self.consume(.keyword_return);
-        var value = self.current.lexeme;
-        _ = try self.parseValue();
-        var expr = vv.Expression{ .LiteralExpr = .{
-            .value = value,
-        } };
+        var expr2 = try self.parseExpression();
         try self.expectSimicolon();
         return node{ .ReturnStmt = .{
-            .Value = expr,
+            .Value = expr2,
         } };
+    }
+
+    fn parseVariableReferance(self: *Parser) !node {
+        var name = self.current.lexeme;
+        try self.consume(.identifier);
+        try self.consume(.equal);
+        var v_type = try self.parseValueType();
+        try self.expectSimicolon();
+        return node{
+            .VariableReference = .{
+                .name = name,
+                .value_type = v_type,
+            },
+        };
     }
 
     fn parseStatement(self: *Parser) !node {
@@ -167,6 +309,9 @@ pub const Parser = struct {
             },
             .keyword_return => {
                 return try self.parseReturn();
+            },
+            .identifier => {
+                return try self.parseVariableReferance();
             },
             else => {
                 std.debug.print("|parseStatement| Unexpected token: {s}\n", .{self.current.lexeme});
@@ -238,7 +383,7 @@ pub const Parser = struct {
             try self.next();
         } else {
             try self.PrintError();
-            std.debug.print("Syntax error: Expected semicolon\n", .{});
+            std.debug.print("Syntax error: Expected semicolon but found {s}\n", .{self.current.lexeme});
             return Error.expected_simicolon;
         }
     }
