@@ -1,8 +1,5 @@
 const std = @import("std");
-<<<<<<< HEAD
-const tokenizer = @import("tokenizer.zig").Tokenizer;
-=======
->>>>>>> 8651675 (some fixes)
+const tokenizer = @import("lexer.zig").Tokenizer;
 const parser = @import("parser.zig").Parser;
 
 pub fn read_file(filename: []const u8) ![]const u8 {
@@ -17,22 +14,11 @@ pub fn main() !void {
     var par = try parser.init(source, "test.x", alloc.allocator());
     try par.pushAll();
     try par.parse();
-<<<<<<< HEAD
+    par.ast.print();
 
     defer par.deinit();
 }
 
 test "tests" {
-    _ = @import("tokenizer.zig");
-=======
-    par.ast.print();
-
-    defer {
-        par.deinit();
-    }
-}
-
-test "tests" {
     _ = @import("lexer.zig");
->>>>>>> 8651675 (some fixes)
 }
