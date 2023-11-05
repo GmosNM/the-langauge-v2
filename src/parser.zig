@@ -109,23 +109,18 @@ pub const Parser = struct {
     fn parseValueType(self: *Parser) !vv.Types {
         switch (self.current.kind) {
             .number_literal => {
-                try self.consume(.number_literal);
                 return .int;
             },
             .string_literal => {
-                try self.consume(.string_literal);
                 return .string;
             },
             .float_literal => {
-                try self.consume(.float_literal);
                 return .float;
             },
             .keyword_true, .keyword_false => {
-                try self.consume(.keyword_true);
                 return .bool;
             },
             .identifier => {
-                try self.consume(.identifier);
                 return .void;
             },
             else => {
@@ -217,6 +212,12 @@ pub const Parser = struct {
         return .plus;
     }
 
+    fn parseExpr(self: *Parser) !vv.Expr {
+        var expr = try self.parseExpression();
+        try self.expectSimicolon();
+        return expr;
+    }
+
     fn parseExpression(self: *Parser) !vv.Expression {
         switch (self.current.kind) {
             .number_literal => {
@@ -258,13 +259,49 @@ pub const Parser = struct {
                 return v;
             },
             .identifier => {
-                var v = vv.Expression{
-                    .VariableReference = .{
-                        .name = self.current.lexeme,
-                        .value_type = .void,
-                    },
-                };
+                var v = vv.Expression{ .VariableReference = .{
+                    .name = self.current.lexeme,
+                } };
+                var left = vv.Expr{ .VariableReference = .{
+                    .name = self.current.lexeme,
+                } };
                 try self.consume(.identifier);
+                if (self.isOperator()) {
+                    var op = try self.getOperator();
+                    var right: vv.Expr = undefined;
+                    switch (self.current.kind) {
+                        .number_literal => {
+                            var value = self.current.lexeme;
+                            try self.consume(.number_literal);
+                            return vv.Expression{ .BinaryExpr = .{ .left = left, .operator = op, .right = vv.Expr{ .LiteralExpr = .{
+                                .value = value,
+                            } } } };
+                        },
+                        .float_literal => {
+                            var value = self.current.lexeme;
+                            try self.consume(.float_literal);
+                            return vv.Expression{ .BinaryExpr = .{ .left = left, .operator = op, .right = vv.Expr{ .LiteralExpr = .{
+                                .value = value,
+                            } } } };
+                        },
+                        .identifier => {
+                            var value = self.current.lexeme;
+                            try self.consume(.identifier);
+                            return vv.Expression{ .BinaryExpr = .{ .left = left, .operator = op, .right = vv.Expr{ .VariableReference = .{
+                                .name = value,
+                            } } } };
+                        },
+                        else => {
+                            std.debug.print("|parseExpression| Unexpected token: {s}\n", .{self.current.lexeme});
+                        },
+                    }
+                    var v2 = vv.Expression{ .BinaryExpr = .{
+                        .left = left,
+                        .operator = op,
+                        .right = right,
+                    } };
+                    return v2;
+                }
                 return v;
             },
             else => {
@@ -274,7 +311,6 @@ pub const Parser = struct {
         return vv.Expression{
             .VariableReference = .{
                 .name = self.current.lexeme,
-                .value_type = .void,
             },
         };
     }
@@ -293,9 +329,11 @@ pub const Parser = struct {
         try self.consume(.identifier);
         try self.consume(.equal);
         var v_type = try self.parseValueType();
+        var value = try self.parseExpression();
         try self.expectSimicolon();
         return node{
             .VariableReference = .{
+                .value = value,
                 .name = name,
                 .value_type = v_type,
             },
