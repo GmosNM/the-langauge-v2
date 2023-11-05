@@ -192,6 +192,7 @@ pub const Tokenizer = struct {
                     result.kind = .colon;
                     result.lexeme = ":";
                     index += 1;
+                    col += 1;
                 },
                 '(' => {
                     result.kind = .left_paren;
@@ -413,7 +414,9 @@ pub const Tokenizer = struct {
                     }
                 },
                 'a'...'z', 'A'...'Z' => {
-                    while (index < self.source.len and std.ascii.isAlphabetic(self.source[index]) and !self.isPunctuator(self.source[index])) : (index += 1) {}
+                    while (index < self.source.len and std.ascii.isAlphabetic(self.source[index]) and !self.isPunctuator(self.source[index])) : (index += 1) {
+                        col += 1;
+                    }
                     const lexeme = self.source[result.location.start..index];
                     result.lexeme = lexeme;
                     result.kind = Token.getKeyword(lexeme) orelse .identifier;
@@ -468,7 +471,6 @@ pub const Tokenizer = struct {
             .line = line,
         } });
         self.tokens_count += 1;
-        col = index;
         return tokens;
     }
 };

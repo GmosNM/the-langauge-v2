@@ -406,7 +406,13 @@ pub const Parser = struct {
                     var func = try self.parseFunctionDecl();
                     try self.ast.push(func);
                 },
-                else => {},
+                else => {
+                    if (self.current.kind == .identifier) {
+                        try self.PrintError();
+                        std.io.getStdOut().writeAll("You can't call a function with an identifier\n") catch {};
+                        break;
+                    }
+                },
             }
         }
         std.debug.print("parsed {d} tokens\n", .{self.token_i});
@@ -417,7 +423,7 @@ pub const Parser = struct {
             try self.next();
         } else {
             try self.PrintError();
-            std.debug.print("Syntax error: Expected semicolon but found {s}\n", .{self.current.lexeme});
+            std.debug.print("Syntax error: Expected semicolon\n", .{});
             return Error.expected_simicolon;
         }
     }
@@ -440,36 +446,39 @@ pub const Parser = struct {
     }
 
     fn getLineToString(self: *Parser, line_number: usize) ![]const u8 {
-        var line_count: usize = 0;
-        const buffer_size: usize = 4096;
-        var buffer = [_]u8{0} ** buffer_size;
-        var file = std.fs.cwd().openFile(self.file_name, .{}) catch {
-            return error.file_not_found;
-        };
-        while (true) {
-            const read_result = try file.read(&buffer);
+        var line_count: usize = 1;
+        var file = try std.fs.cwd().openFile(self.file_name, .{});
+        var buffer = [_]u8{0};
+        var current_line = std.ArrayList(u8).init(self.allocator);
+        var reached_target_line = false;
+
+        while (line_count <= line_number) {
+            const read_result = try file.read(buffer[0..]);
             if (read_result == 0) {
-                break;
+                return undefined;
             }
 
-            for (buffer) |byte| {
-                if (byte == '\n') {
-                    line_count += 1;
-                    if (line_count == line_number) {
-                        const line = buffer[0..];
-                        return line;
-                    }
+            if (buffer[0] == '\n') {
+                line_count += 1;
+                if (line_count == line_number) {
+                    reached_target_line = true;
                 }
+            } else if (reached_target_line) {
+                try current_line.append(buffer[0]);
             }
         }
 
-        return "Line not found";
+        if (reached_target_line) {
+            return current_line.items;
+        } else {
+            return undefined;
+        }
     }
 
     pub fn PrintError(self: *Parser) !void {
-        const current_token = self.tokens_.items[self.token_i];
+        const current_token = self.tokens_.items[self.token_i - 1];
         const line = current_token.location.line;
-        const col = current_token.location.column;
+        const col = current_token.location.column + 2;
         var line_string = try self.getLineToString(line);
 
         std.debug.print("{s}\n", .{line_string});
@@ -521,12 +530,12 @@ fn testParser(source: []const u8, expected_nodes: []const vv.Node) !void {
         return error.test_failed;
     }
 
-    for (par.ast.nodes.items, 0..) |_, i| {
+    for (par.ast.nodes.items, 0..) |expected, i| {
         if (i >= expected_nodes.len) {
             std.debug.print("Unexpected node at index {d}\n", .{i});
             return;
         }
-        try std.testing.expectEqualDeep(expected_nodes[i], par.ast.nodes.items[i]);
+        try std.testing.expectEqualDeep(expected, par.ast.nodes.items[i]);
     }
 }
 
