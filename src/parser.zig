@@ -10,6 +10,9 @@ const token = @import("lexer.zig").Token;
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
+// Roadmap
+// - Parse
+
 pub const Parser = struct {
     tokens_: std.ArrayList(token),
     current: token,
@@ -129,7 +132,6 @@ pub const Parser = struct {
                 return Error.invalid_token;
             },
         }
-        return .void;
     }
 
     // let var_name : type = value;
@@ -210,12 +212,6 @@ pub const Parser = struct {
             },
         }
         return .plus;
-    }
-
-    fn parseExpr(self: *Parser) !vv.Expr {
-        var expr = try self.parseExpression();
-        try self.expectSimicolon();
-        return expr;
     }
 
     fn parseExpression(self: *Parser) !vv.Expression {
@@ -502,3 +498,57 @@ pub const Parser = struct {
         }
     }
 };
+
+fn testParser(source: []const u8, expected_nodes: []const vv.Node) !void {
+    var allocator = std.testing.allocator;
+    var par = Parser{
+        .tokens_ = std.ArrayList(token).init(allocator),
+        .current = undefined,
+        .allocator = allocator,
+        .token_i = 0,
+        .token_kinds = undefined,
+        .source = source,
+        .file_name = "test.x",
+        .ast = ast.init(allocator),
+    };
+    defer par.deinit();
+    defer par.ast.deinit();
+    try par.pushAll();
+    try par.parse();
+
+    if (expected_nodes.len != par.ast.nodes.items.len) {
+        std.debug.print("Expected {d} nodes but found {d}\n", .{ expected_nodes.len, par.ast.nodes.items.len });
+        return error.test_failed;
+    }
+
+    for (par.ast.nodes.items, 0..) |_, i| {
+        if (i >= expected_nodes.len) {
+            std.debug.print("Unexpected node at index {d}\n", .{i});
+            return;
+        }
+        try std.testing.expectEqualDeep(expected_nodes[i], par.ast.nodes.items[i]);
+    }
+}
+
+test "parse function" {
+    var source = "fn main(): int {}";
+    try testParser(source, &[_]vv.Node{.{ .FunctionDecl = .{
+        .name = "main",
+        .args = std.ArrayList(vv.VariableDecl).init(std.testing.allocator),
+        .body = vv.Body{
+            .body = std.ArrayList(vv.Node).init(std.testing.allocator),
+        },
+        .return_type = .int,
+    } }});
+}
+
+test "parse variable" {
+    var source = "let a: int = 10;";
+    try testParser(source, &[_]vv.Node{.{ .VariableDecl = .{
+        .name = "a",
+        .Type = .int,
+        .value = vv.Expression{ .LiteralExpr = .{
+            .value = "10",
+        } },
+    } }});
+}
