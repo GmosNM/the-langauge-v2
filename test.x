@@ -1,9 +1,10 @@
 
 
-let x: string = "Hello world";
-let y: int = 42;
-let z: bool = true;
-let w: float = 3.14;
-fn main(x: int | y: void | z: bool | w: float | a: string): int{
+let x: int = 10;
+let y: int = 20;
 
+fn main(): int{
+    let x: int = 10;
+    let y: int = 20;
+    return x;
 }

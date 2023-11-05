@@ -9,6 +9,22 @@ pub const Types = enum {
     string,
 };
 
+pub const Operator = enum {
+    plus,
+    minus,
+    multiply,
+    divide,
+    less_than,
+    less_than_equal,
+    greater_than,
+    greater_than_equal,
+    equal,
+    not_equal,
+    and_op,
+    or_op,
+    not,
+};
+
 pub const VariableDecl = struct {
     name: []const u8,
     Type: Types,
@@ -26,11 +42,42 @@ pub const FunctionDecl = struct {
     body: Body,
 };
 
+pub const Expr = union(enum) {
+    VariableDecl: VariableDecl,
+};
+
+pub const BinaryExpr = struct {
+    left: Expr,
+    operator: Operator,
+    right: Expr,
+};
+
+pub const UnaryExpr = struct {
+    operator: Operator,
+    operand: Expr,
+};
+
+pub const LiteralExpr = struct {
+    value: []const u8,
+};
+
+pub const Expression = union(enum) {
+    BinaryExpr: BinaryExpr,
+    UnaryExpr: UnaryExpr,
+    LiteralExpr: LiteralExpr,
+};
+
+pub const ReturnStmt = struct {
+    Value: Expression,
+};
+
 pub const Node = union(enum) {
     Leaf: i32,
     VariableDecl: VariableDecl,
     FunctionDecl: FunctionDecl,
     Body: Body,
+    ReturnStmt: ReturnStmt,
+    Expr: Expression,
 };
 
 pub const ast = struct {
@@ -51,6 +98,7 @@ pub const ast = struct {
     }
 
     pub fn print(Self: *ast) void {
+        std.debug.print("Node Count: {d}\n", .{Self.nodes.items.len});
         for (Self.nodes.items) |node| {
             switch (node) {
                 .Leaf => |leaf| {
@@ -69,17 +117,59 @@ pub const ast = struct {
                     for (function.args.items) |arg| {
                         var arg_name = arg.name;
                         var t = @tagName(arg.Type);
-                        std.debug.print("\t{s}: name: {s}, Type: {s}\n", .{ @tagName(node), arg_name, t });
+                        std.debug.print("\targ_name: {s}, Type: {s}\n", .{ arg_name, t });
                     }
                     for (function.body.body.items) |body_node| {
-                        std.debug.print("{s}: \n", .{@tagName(body_node)});
+                        switch (body_node) {
+                            .Leaf => |leaf| {
+                                std.debug.print("\t\tLeaf: {}\n", .{leaf});
+                            },
+                            .VariableDecl => |variable| {
+                                var var_name = variable.name;
+                                var value = variable.value;
+                                var t = @tagName(variable.Type);
+                                std.debug.print("\t\t{s}: name: {s}, value: \"{s}\", Type: {s}\n", .{ @tagName(body_node), var_name, value, t });
+                            },
+                            .ReturnStmt => |returnStmt| {
+                                std.debug.print("\t\tReturnStmt: \n", .{});
+                                var value = returnStmt.Value;
+                                switch (value) {
+                                    .BinaryExpr => |binaryExpr| {
+                                        var left = binaryExpr.left;
+                                        var right = binaryExpr.right;
+                                        switch (left) {
+                                            .VariableDecl => |variable| {
+                                                var var_name = variable.name;
+                                                var t = @tagName(variable.Type);
+                                                std.debug.print("\t\t\tLeft: {s}: name: {s}, Type: {s}\n", .{ @tagName(body_node), var_name, t });
+                                            },
+                                        }
+                                        switch (right) {
+                                            .VariableDecl => |variable| {
+                                                var var_name = variable.name;
+                                                var t = @tagName(variable.Type);
+                                                std.debug.print("\t\t\tRight: {s}: name: {s}, Type: {s}\n", .{ @tagName(body_node), var_name, t });
+                                            },
+                                        }
+                                    },
+                                    .LiteralExpr => |literalExpr| {
+                                        var expr_value = literalExpr.value;
+                                        std.debug.print("\t\t\tValue: {s}\n", .{expr_value});
+                                    },
+                                    .UnaryExpr => |unaryExpr| {
+                                        var operand = unaryExpr.operand;
+                                        _ = operand;
+                                    },
+                                }
+                            },
+                            else => {
+                                std.debug.print("\t\t{s}: \n", .{@tagName(body_node)});
+                            },
+                        }
                     }
                 },
-                .Body => |body| {
+                else => {
                     std.debug.print("{s}: \n", .{@tagName(node)});
-                    for (body.body.items) |body_node| {
-                        std.debug.print("{s}: \n", .{@tagName(body_node)});
-                    }
                 },
             }
         }

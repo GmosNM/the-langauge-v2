@@ -72,12 +72,14 @@ pub const Parser = struct {
                 return .float;
             },
             else => {
+                std.debug.print("|parseType| Unexpected token: {s}\n", .{self.current.lexeme});
                 try self.PrintError();
             },
         }
         return .void;
     }
 
+    // number | string | float | true | false
     fn parseValue(self: *Parser) !void {
         switch (self.current.kind) {
             .number_literal => {
@@ -92,14 +94,19 @@ pub const Parser = struct {
             .keyword_true, .keyword_false => {
                 try self.consume(.keyword_true);
             },
+            .identifier => {
+                try self.consume(.identifier);
+            },
             else => {
+                std.debug.print("|parseValue| Unexpected token: {s}\n", .{self.current.lexeme});
                 try self.PrintError();
+                return Error.invalid_token;
             },
         }
     }
 
     // let var_name : type = value;
-    fn parseVariableDecl(self: *Parser) !void {
+    fn parseVariableDecl(self: *Parser) !node {
         if (self.current.kind == .keyword_let) {
             try self.consume(.keyword_let);
         }
@@ -107,19 +114,22 @@ pub const Parser = struct {
         try self.consume(.identifier);
         try self.consume(.colon);
         var var_type = try self.parseType();
-        try self.consume(.equal);
-        var value = self.current.lexeme;
-        try self.parseValue();
-        try self.consume(.semicolon);
-        const v: node = node{ .VariableDecl = .{
+        var value: []const u8 = undefined;
+        if (self.current.kind == .equal) {
+            try self.consume(.equal);
+            value = self.current.lexeme;
+            try self.parseValue();
+        }
+        try self.expectSimicolon();
+        const v = node{ .VariableDecl = .{
             .name = var_name,
             .Type = var_type,
             .value = value,
         } };
-        try self.ast.push(v);
+        return v;
     }
 
-    // ( arg1 : type |  arg2 : type )
+    // ( arg1 : type |  arg2 : type | .... )
     fn parseFunctionArgments(self: *Parser) !std.ArrayList(vv.VariableDecl) {
         var args = std.ArrayList(vv.VariableDecl).init(self.allocator);
         var name = self.current.lexeme;
@@ -137,8 +147,51 @@ pub const Parser = struct {
         return args;
     }
 
+    fn parseReturn(self: *Parser) !node {
+        try self.consume(.keyword_return);
+        var value = self.current.lexeme;
+        _ = try self.parseValue();
+        var expr = vv.Expression{ .LiteralExpr = .{
+            .value = value,
+        } };
+        try self.expectSimicolon();
+        return node{ .ReturnStmt = .{
+            .Value = expr,
+        } };
+    }
+
+    fn parseStatement(self: *Parser) !node {
+        switch (self.current.kind) {
+            .keyword_let => {
+                return try self.parseVariableDecl();
+            },
+            .keyword_return => {
+                return try self.parseReturn();
+            },
+            else => {
+                std.debug.print("|parseStatement| Unexpected token: {s}\n", .{self.current.lexeme});
+                try self.PrintError();
+                return Error.invalid_token;
+            },
+        }
+    }
+
+    fn parseFunctionBody(self: *Parser) !vv.Body {
+        try self.consume(.left_brace);
+        var body_nodes = std.ArrayList(node).init(self.allocator);
+        var b = vv.Body{
+            .body = body_nodes,
+        };
+        while (self.current.kind != .right_brace) {
+            var stsmt = try self.parseStatement();
+            try b.body.append(stsmt);
+        }
+        try self.consume(.right_brace);
+        return b;
+    }
+
     // fn func_name ( arg1 : type |  arg2 : type ) : type { }
-    fn parseFunctionDecl(self: *Parser) !void {
+    fn parseFunctionDecl(self: *Parser) !node {
         if (self.current.kind == .keyword_fn) {
             try self.consume(.keyword_fn);
         }
@@ -152,35 +205,42 @@ pub const Parser = struct {
         try self.consume(.right_paren);
         try self.consume(.colon);
         var func_type = try self.parseType();
-        try self.consume(.left_brace);
-        try self.consume(.right_brace);
-        const f: node = node{ .FunctionDecl = .{
+        var func_body = try self.parseFunctionBody();
+        var b = func_body;
+        var f: node = node{ .FunctionDecl = .{
             .name = func_name,
             .args = args,
+            .body = b,
             .return_type = func_type,
-            .body = undefined,
         } };
-        try self.ast.push(f);
+        return f;
     }
 
     pub fn parse(self: *Parser) !void {
-        try self.next();
-        for (self.tokens_.items) |t| {
-            switch (t.kind) {
-                .eof => {
-                    break;
-                },
+        while (self.current.kind != .eof) : (self.current = self.tokens_.items[self.token_i]) {
+            switch (self.current.kind) {
                 .keyword_let => {
-                    try self.parseVariableDecl();
+                    var vara = try self.parseVariableDecl();
+                    try self.ast.push(vara);
                 },
                 .keyword_fn => {
-                    try self.parseFunctionDecl();
+                    var func = try self.parseFunctionDecl();
+                    try self.ast.push(func);
                 },
-                .identifier => {},
                 else => {},
             }
         }
         std.debug.print("parsed {d} tokens\n", .{self.token_i});
+    }
+
+    fn expectSimicolon(self: *Parser) !void {
+        if (self.current.kind == .semicolon) {
+            try self.next();
+        } else {
+            try self.PrintError();
+            std.debug.print("Syntax error: Expected semicolon\n", .{});
+            return Error.expected_simicolon;
+        }
     }
 
     pub fn deinit(self: *Parser) void {
@@ -192,9 +252,10 @@ pub const Parser = struct {
     }
 
     pub fn next(self: *Parser) !void {
-        if (self.token_i >= self.tokens_.items.len) {
+        if (self.token_i >= self.tokens_.items.len - 1) {
             return;
         }
+
         self.token_i += 1;
         self.current = self.tokens_.items[self.token_i];
     }
@@ -227,23 +288,20 @@ pub const Parser = struct {
     }
 
     pub fn PrintError(self: *Parser) !void {
-        const line = self.current.location.line;
-        const col = self.current.location.column;
+        const current_token = self.tokens_.items[self.token_i];
+        const line = current_token.location.line;
+        const col = current_token.location.column;
         var line_string = try self.getLineToString(line);
 
         std.debug.print("{s}\n", .{line_string});
-        for (0..col) |i| {
-            _ = i;
+        for (0..col) |_| {
             std.debug.print("~", .{});
         }
         std.debug.print("^\n", .{});
     }
 
-    pub fn consume(self: *Parser, kind: token.Kind) !void {
+    fn consume(self: *Parser, kind: token.Kind) !void {
         if (self.current.kind == kind) {
-            self.current = self.tokens_.items[self.token_i];
-            self.current.location.line = self.tokens_.items[self.token_i].location.line;
-            self.current.location.column = self.tokens_.items[self.token_i].location.column;
             try self.next();
         } else {
             const expected_kind_name = @tagName(kind);
@@ -257,6 +315,7 @@ pub const Parser = struct {
                 found_kind_name,
             });
             try self.PrintError();
+            return Error.invalid_token;
         }
     }
 };
