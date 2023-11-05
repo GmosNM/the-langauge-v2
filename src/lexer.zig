@@ -111,6 +111,7 @@ pub const Token = struct {
         .{ "int", .int },
         .{ "char", .char },
         .{ "string", .string },
+        .{ "bool", .bool },
         .{ "void", .void },
     });
 

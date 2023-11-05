@@ -15,9 +15,22 @@ pub const VariableDecl = struct {
     value: []const u8,
 };
 
+pub const Body = struct {
+    body: std.ArrayList(Node),
+};
+
+pub const FunctionDecl = struct {
+    name: []const u8,
+    args: std.ArrayList(VariableDecl),
+    return_type: Types,
+    body: Body,
+};
+
 pub const Node = union(enum) {
     Leaf: i32,
     VariableDecl: VariableDecl,
+    FunctionDecl: FunctionDecl,
+    Body: Body,
 };
 
 pub const ast = struct {
@@ -48,6 +61,25 @@ pub const ast = struct {
                     var value = variable.value;
                     var t = @tagName(variable.Type);
                     std.debug.print("{s}: name: {s}, value: \"{s}\", Type: {s}\n", .{ @tagName(node), name, value, t });
+                },
+                .FunctionDecl => |function| {
+                    var name = function.name;
+                    std.debug.print("{s}: \n\tname: {s}\n", .{ @tagName(node), name });
+                    std.debug.print("\treturn_type: {s}\n", .{@tagName(function.return_type)});
+                    for (function.args.items) |arg| {
+                        var arg_name = arg.name;
+                        var t = @tagName(arg.Type);
+                        std.debug.print("\t{s}: name: {s}, Type: {s}\n", .{ @tagName(node), arg_name, t });
+                    }
+                    for (function.body.body.items) |body_node| {
+                        std.debug.print("{s}: \n", .{@tagName(body_node)});
+                    }
+                },
+                .Body => |body| {
+                    std.debug.print("{s}: \n", .{@tagName(node)});
+                    for (body.body.items) |body_node| {
+                        std.debug.print("{s}: \n", .{@tagName(body_node)});
+                    }
                 },
             }
         }

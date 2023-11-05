@@ -1,6 +1,7 @@
 const std = @import("std");
 const File = std.fs.File;
 const Self = @This();
+const vv = @import("ast.zig");
 const ast = @import("ast.zig").ast;
 const node = @import("ast.zig").Node;
 const tokenizer = @import("lexer.zig").Tokenizer;
@@ -71,10 +72,95 @@ pub const Parser = struct {
                 return .float;
             },
             else => {
-                try self.consume(.identifier);
+                try self.PrintError();
             },
         }
         return .void;
+    }
+
+    fn parseValue(self: *Parser) !void {
+        switch (self.current.kind) {
+            .number_literal => {
+                try self.consume(.number_literal);
+            },
+            .string_literal => {
+                try self.consume(.string_literal);
+            },
+            .float_literal => {
+                try self.consume(.float_literal);
+            },
+            .keyword_true, .keyword_false => {
+                try self.consume(.keyword_true);
+            },
+            else => {
+                try self.PrintError();
+            },
+        }
+    }
+
+    // let var_name : type = value;
+    fn parseVariableDecl(self: *Parser) !void {
+        if (self.current.kind == .keyword_let) {
+            try self.consume(.keyword_let);
+        }
+        const var_name = self.current.lexeme;
+        try self.consume(.identifier);
+        try self.consume(.colon);
+        var var_type = try self.parseType();
+        try self.consume(.equal);
+        var value = self.current.lexeme;
+        try self.parseValue();
+        try self.consume(.semicolon);
+        const v: node = node{ .VariableDecl = .{
+            .name = var_name,
+            .Type = var_type,
+            .value = value,
+        } };
+        try self.ast.push(v);
+    }
+
+    // ( arg1 : type |  arg2 : type )
+    fn parseFunctionArgments(self: *Parser) !std.ArrayList(vv.VariableDecl) {
+        var args = std.ArrayList(vv.VariableDecl).init(self.allocator);
+        var name = self.current.lexeme;
+        try self.consume(.identifier);
+        try self.consume(.colon);
+        var v_type = try self.parseType();
+        try args.append(.{ .name = name, .Type = v_type, .value = undefined });
+        while (self.current.kind == .pipe) {
+            try self.consume(.pipe);
+            name = self.current.lexeme;
+            try self.consume(.identifier);
+            try self.consume(.colon);
+            try args.append(.{ .name = name, .Type = try self.parseType(), .value = undefined });
+        }
+        return args;
+    }
+
+    // fn func_name ( arg1 : type |  arg2 : type ) : type { }
+    fn parseFunctionDecl(self: *Parser) !void {
+        if (self.current.kind == .keyword_fn) {
+            try self.consume(.keyword_fn);
+        }
+        const func_name = self.current.lexeme;
+        var args = std.ArrayList(vv.VariableDecl).init(self.allocator);
+        try self.consume(.identifier);
+        try self.consume(.left_paren);
+        while (self.current.kind != .right_paren) {
+            args = try self.parseFunctionArgments();
+        }
+        try self.consume(.right_paren);
+        try self.consume(.colon);
+        var func_type = try self.parseType();
+        try self.consume(.left_brace);
+        try self.consume(.right_brace);
+        const f: node = node{ .FunctionDecl = .{
+            .name = func_name,
+            .args = args,
+            .return_type = func_type,
+            .body = undefined,
+        } };
+        try self.ast.push(f);
     }
 
     pub fn parse(self: *Parser) !void {
@@ -85,23 +171,10 @@ pub const Parser = struct {
                     break;
                 },
                 .keyword_let => {
-                    if (self.current.kind == .keyword_let) {
-                        try self.consume(.keyword_let);
-                    }
-                    const var_name = self.current.lexeme;
-                    try self.consume(.identifier);
-                    try self.consume(.colon);
-                    var var_type = try self.parseType();
-                    try self.consume(.equal);
-                    var value = self.current.lexeme;
-                    try self.consume(.number_literal);
-                    try self.consume(.semicolon);
-                    const v: node = node{ .VariableDecl = .{
-                        .name = var_name,
-                        .Type = var_type,
-                        .value = value,
-                    } };
-                    try self.ast.push(v);
+                    try self.parseVariableDecl();
+                },
+                .keyword_fn => {
+                    try self.parseFunctionDecl();
                 },
                 .identifier => {},
                 else => {},
