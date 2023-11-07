@@ -1,4 +1,9 @@
 
-let x: int = 10;
+fn add(x: int | y: int): int{
+    return x + y;
+}
 
-let y: int = 20
+fn main(): int{
+    let y: int = add(1, 2);
+    return y;
+}

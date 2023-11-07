@@ -150,7 +150,6 @@ pub const Parser = struct {
             value = self.current.lexeme;
             expr = try self.parseExpression();
         }
-        try self.expectSimicolon();
         const v = node{ .VariableDecl = .{
             .name = var_name,
             .Type = var_type,
@@ -225,19 +224,19 @@ pub const Parser = struct {
                     .value = self.current.lexeme,
                 } };
                 try self.consume(.number_literal);
-                if (self.isOperator()) {
+                while (self.isOperator()) {
                     var op = try self.getOperator();
                     var right = vv.Expr{ .LiteralExpr = .{
                         .value = value,
                     } };
                     try self.consume(.number_literal);
-                    var v2 = vv.Expression{ .BinaryExpr = .{
+                    v = vv.Expression{ .BinaryExpr = .{
                         .left = left,
                         .operator = op,
                         .right = right,
                     } };
-                    return v2;
                 }
+                try self.consume(.semicolon);
                 return v;
             },
             .string_literal => {
@@ -261,8 +260,31 @@ pub const Parser = struct {
                 var left = vv.Expr{ .VariableReference = .{
                     .name = self.current.lexeme,
                 } };
+                var func_name = self.current.lexeme;
                 try self.consume(.identifier);
-                if (self.isOperator()) {
+                // Function Call
+                var args = std.ArrayList(vv.VariableRef).init(self.allocator);
+                if (self.current.kind == .left_paren) {
+                    try self.consume(.left_paren);
+                    while (self.current.kind != .right_paren) {
+                        if (self.current.kind == .comma) {
+                            try self.consume(.comma);
+                        }
+                        var name = self.current.lexeme;
+                        try args.append(.{ .name = name });
+                        if (self.current.kind == .number_literal) {
+                            try self.consume(.number_literal);
+                        }
+                    }
+                    try self.consume(.right_paren);
+                    try self.consume(.semicolon);
+                    v = vv.Expression{ .FunctionCall = .{
+                        .name = func_name,
+                        .args = args,
+                    } };
+                    return v;
+                }
+                while (self.isOperator()) {
                     var op = try self.getOperator();
                     var right: vv.Expr = undefined;
                     switch (self.current.kind) {
@@ -283,6 +305,7 @@ pub const Parser = struct {
                         .identifier => {
                             var value = self.current.lexeme;
                             try self.consume(.identifier);
+
                             return vv.Expression{ .BinaryExpr = .{ .left = left, .operator = op, .right = vv.Expr{ .VariableReference = .{
                                 .name = value,
                             } } } };
@@ -423,8 +446,8 @@ pub const Parser = struct {
             try self.next();
         } else {
             try self.PrintError();
-            std.debug.print("Syntax error: Expected semicolon\n", .{});
-            return Error.expected_simicolon;
+            std.log.err("Syntax error: Expected semicolon", .{});
+            return Error.invalid_token;
         }
     }
 
@@ -480,12 +503,16 @@ pub const Parser = struct {
         const line = current_token.location.line;
         const col = current_token.location.column + 2;
         var line_string = try self.getLineToString(line);
-
         std.debug.print("{s}\n", .{line_string});
         for (0..col) |_| {
             std.debug.print("~", .{});
         }
         std.debug.print("^\n", .{});
+        std.debug.print("{s}:{}:{}: ", .{
+            self.file_name,
+            line,
+            col,
+        });
     }
 
     fn consume(self: *Parser, kind: token.Kind) !void {

@@ -42,6 +42,11 @@ pub const FunctionDecl = struct {
     body: Body,
 };
 
+pub const FunctionCall = struct {
+    name: []const u8,
+    args: std.ArrayList(VariableRef),
+};
+
 pub const VariableRef = struct {
     name: []const u8,
 };
@@ -71,6 +76,7 @@ pub const Expression = union(enum) {
     UnaryExpr: UnaryExpr,
     LiteralExpr: LiteralExpr,
     VariableReference: VariableRef,
+    FunctionCall: FunctionCall,
 };
 
 pub const ReturnStmt = struct {
@@ -88,6 +94,7 @@ pub const Node = union(enum) {
     VariableDecl: VariableDecl,
     VariableReference: VariableReference,
     FunctionDecl: FunctionDecl,
+    FunctionCall: FunctionCall,
     Body: Body,
     ReturnStmt: ReturnStmt,
     Expr: Expression,
@@ -161,6 +168,14 @@ pub const ast = struct {
                     var v_type = @tagName(variable.value_type);
                     std.debug.print("\n\tType: {s}\n", .{v_type});
                 },
+                .FunctionCall => |functionCall| {
+                    var name = functionCall.name;
+                    std.debug.print("{s}: \n\tname: {s}\n", .{ @tagName(node), name });
+                    for (functionCall.args.items) |arg| {
+                        var arg_name = arg.name;
+                        std.debug.print("\targ_name: {s}\n", .{arg_name});
+                    }
+                },
                 .FunctionDecl => |function| {
                     var name = function.name;
                     std.debug.print("{s}: \n\tname: {s}\n", .{ @tagName(node), name });
@@ -178,7 +193,7 @@ pub const ast = struct {
                             .VariableDecl => |variable| {
                                 std.debug.print("\t\tVariableDecl: \n", .{});
                                 var value = variable.value;
-                                std.debug.print("\t\t\tname: {s}\n", .{variable.name});
+                                std.debug.print("\t\t\tVariable: {s}\n", .{variable.name});
                                 switch (value) {
                                     .BinaryExpr => |binaryExpr| {
                                         var left = binaryExpr.left;
@@ -198,7 +213,7 @@ pub const ast = struct {
                                         switch (right) {
                                             .VariableReference => |vars| {
                                                 var vs_name = vars.name;
-                                                std.debug.print("\t\t\tRight: name: {s},\n", .{vs_name});
+                                                std.debug.print("\t\t\tRight::Variable: {s},\n", .{vs_name});
                                             },
                                             .LiteralExpr => |literalExpr| {
                                                 var expr_value = literalExpr.value;
@@ -209,6 +224,14 @@ pub const ast = struct {
                                     .LiteralExpr => |literalExpr| {
                                         var expr_value = literalExpr.value;
                                         std.debug.print("\t\t\tValue: {s}\n", .{expr_value});
+                                    },
+                                    .FunctionCall => |functionCall| {
+                                        name = functionCall.name;
+                                        std.debug.print("\t\t\tFunctionCall::{s}:: \n", .{name});
+                                        for (functionCall.args.items) |arg| {
+                                            var arg_name = arg.name;
+                                            std.debug.print("\t\t\t\targ_name: {s}\n", .{arg_name});
+                                        }
                                     },
                                     else => {},
                                 }
@@ -284,6 +307,14 @@ pub const ast = struct {
                                     .LiteralExpr => |literalExpr| {
                                         var expr_value = literalExpr.value;
                                         std.debug.print("\t\t\tValue: {s}\n", .{expr_value});
+                                    },
+                                    .FunctionCall => |functionCall| {
+                                        var name_f = functionCall.name;
+                                        std.debug.print("\t\t\tLeft: Value: {s}\n", .{name_f});
+                                        for (functionCall.args.items) |arg| {
+                                            var arg_name = arg.name;
+                                            std.debug.print("\t\t\t\targ_name: {s}\n", .{arg_name});
+                                        }
                                     },
                                     .UnaryExpr => |unaryExpr| {
                                         var operand = unaryExpr.operand;
