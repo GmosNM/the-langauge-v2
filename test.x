@@ -1,9 +1,11 @@
 
-fn add(x: int | y: int): int{
-    return x + y;
+
+
+fn main(): int {
+    let result: int = 10;
+    if (result == 10) {
+        result = 20;
+    }
+    return result;
 }
 
-fn main(): int{
-    let y: int = add(1, 2);
-    return y;
-}

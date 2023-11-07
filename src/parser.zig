@@ -178,7 +178,7 @@ pub const Parser = struct {
 
     fn isOperator(self: *Parser) bool {
         switch (self.current.kind) {
-            .plus, .minus, .asterisk, .slash => {
+            .plus, .minus, .asterisk, .slash, .equal_equal, .plus_equal => {
                 return true;
             },
             else => {
@@ -202,6 +202,10 @@ pub const Parser = struct {
                 try self.consume(.asterisk);
                 return .multiply;
             },
+            .equal_equal => {
+                try self.consume(.equal_equal);
+                return .equal_equal;
+            },
             .slash => {
                 try self.consume(.slash);
                 return .divide;
@@ -210,7 +214,7 @@ pub const Parser = struct {
                 std.debug.print("|getOperator| Unexpected token: {s}\n", .{self.current.lexeme});
             },
         }
-        return .plus;
+        return undefined;
     }
 
     fn parseExpression(self: *Parser) !vv.Expression {
@@ -346,17 +350,82 @@ pub const Parser = struct {
     fn parseVariableReferance(self: *Parser) !node {
         var name = self.current.lexeme;
         try self.consume(.identifier);
-        try self.consume(.equal);
+        var op: vv.Operator = undefined;
+        switch (self.current.kind) {
+            .plus_equal => {
+                op = .plus_equal;
+                try self.consume(.plus_equal);
+            },
+            .equal => {
+                op = .equal;
+                try self.consume(.equal);
+            },
+            .equal_equal => {
+                op = .equal_equal;
+                try self.consume(.equal_equal);
+            },
+            .minus_equal => {
+                op = .minus_equal;
+                try self.consume(.minus_equal);
+            },
+            else => {
+                @panic("ParseVariableReferance: this operator is not supported");
+            },
+        }
         var v_type = try self.parseValueType();
         var value = try self.parseExpression();
-        try self.expectSimicolon();
         return node{
             .VariableReference = .{
                 .value = value,
                 .name = name,
+                .Operator = op,
                 .value_type = v_type,
             },
         };
+    }
+
+    fn parseIf(self: *Parser) !node {
+        try self.consume(.keyword_if);
+        try self.consume(.left_paren);
+        var cond = try self.parseExpression();
+        try self.consume(.right_paren);
+        try self.consume(.left_brace);
+        var body_nodes = std.ArrayList(node).init(self.allocator);
+        var b = vv.Body{
+            .body = body_nodes,
+        };
+        while (self.current.kind != .right_brace) {
+            switch (self.current.kind) {
+                .keyword_let => {
+                    var stmt = try self.parseVariableDecl();
+                    try b.body.append(stmt);
+                },
+                .keyword_return => {
+                    var stmt = try self.parseReturn();
+                    try b.body.append(stmt);
+                },
+                .keyword_if => {
+                    var stmt = try self.parseIf();
+                    try b.body.append(stmt);
+                },
+                .identifier => {
+                    var stmt = try self.parseVariableReferance();
+                    try b.body.append(stmt);
+                },
+                else => {
+                    std.debug.print("|parseStatement| Unexpected token: {s}\n", .{self.current.lexeme});
+                    try self.PrintError();
+                    return Error.invalid_token;
+                },
+            }
+        }
+        try self.consume(.right_brace);
+        var nod = node{ .IfStmt = .{
+            .condition = cond,
+            .body = b,
+            .else_body = undefined,
+        } };
+        return nod;
     }
 
     fn parseStatement(self: *Parser) !node {
@@ -366,6 +435,9 @@ pub const Parser = struct {
             },
             .keyword_return => {
                 return try self.parseReturn();
+            },
+            .keyword_if => {
+                return try self.parseIf();
             },
             .identifier => {
                 return try self.parseVariableReferance();
@@ -408,11 +480,10 @@ pub const Parser = struct {
         try self.consume(.colon);
         var func_type = try self.parseType();
         var func_body = try self.parseFunctionBody();
-        var b = func_body;
         var f: node = node{ .FunctionDecl = .{
             .name = func_name,
             .args = args,
-            .body = b,
+            .body = func_body,
             .return_type = func_type,
         } };
         return f;
