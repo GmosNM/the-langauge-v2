@@ -178,7 +178,7 @@ pub const Parser = struct {
 
     fn isOperator(self: *Parser) bool {
         switch (self.current.kind) {
-            .plus, .minus, .asterisk, .slash, .equal_equal, .plus_equal => {
+            .plus, .minus, .asterisk, .slash, .equal_equal, .plus_equal, .less_than, .less_than_equal, .greater_than, .greater_than_equal => {
                 return true;
             },
             else => {
@@ -210,6 +210,26 @@ pub const Parser = struct {
                 try self.consume(.slash);
                 return .divide;
             },
+            .plus_equal => {
+                try self.consume(.plus_equal);
+                return .plus_equal;
+            },
+            .less_than => {
+                try self.consume(.less_than);
+                return .less_than;
+            },
+            .less_than_equal => {
+                try self.consume(.less_than_equal);
+                return .less_than_equal;
+            },
+            .greater_than => {
+                try self.consume(.greater_than);
+                return .greater_than;
+            },
+            .greater_than_equal => {
+                try self.consume(.greater_than_equal);
+                return .greater_than_equal;
+            },
             else => {
                 std.debug.print("|getOperator| Unexpected token: {s}\n", .{self.current.lexeme});
             },
@@ -240,7 +260,6 @@ pub const Parser = struct {
                         .right = right,
                     } };
                 }
-                try self.consume(.semicolon);
                 return v;
             },
             .string_literal => {
@@ -279,13 +298,21 @@ pub const Parser = struct {
                         if (self.current.kind == .number_literal) {
                             try self.consume(.number_literal);
                         }
+                        if (self.current.kind == .identifier) {
+                            try self.consume(.identifier);
+                        }
+                        while (self.isOperator()) {
+                            var op = try self.getOperator();
+                            _ = op;
+                        }
                     }
                     try self.consume(.right_paren);
-                    try self.consume(.semicolon);
+                    try self.expectSimicolon();
                     v = vv.Expression{ .FunctionCall = .{
                         .name = func_name,
                         .args = args,
                     } };
+
                     return v;
                 }
                 while (self.isOperator()) {
@@ -309,6 +336,33 @@ pub const Parser = struct {
                         .identifier => {
                             var value = self.current.lexeme;
                             try self.consume(.identifier);
+
+                            if (self.current.kind == .left_paren) {
+                                try self.consume(.left_paren);
+                                args = std.ArrayList(vv.VariableRef).init(self.allocator);
+                                while (self.current.kind != .right_paren) {
+                                    if (self.current.kind == .comma) {
+                                        try self.consume(.comma);
+                                    }
+                                    var name = self.current.lexeme;
+                                    try args.append(.{ .name = name });
+                                    if (self.current.kind == .number_literal) {
+                                        try self.consume(.number_literal);
+                                    }
+                                    if (self.current.kind == .identifier) {
+                                        try self.consume(.identifier);
+                                    }
+                                    while (self.isOperator()) {
+                                        op = try self.getOperator();
+                                    }
+                                }
+                                try self.consume(.right_paren);
+                                right = vv.Expr{ .FunctionCall = .{
+                                    .name = value,
+                                    .args = args,
+                                } };
+                                return vv.Expression{ .BinaryExpr = .{ .left = left, .operator = op, .right = right } };
+                            }
 
                             return vv.Expression{ .BinaryExpr = .{ .left = left, .operator = op, .right = vv.Expr{ .VariableReference = .{
                                 .name = value,

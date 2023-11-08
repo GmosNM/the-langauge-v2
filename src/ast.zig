@@ -47,6 +47,7 @@ pub const FunctionDecl = struct {
 
 pub const FunctionCall = struct {
     name: []const u8,
+    // TODO: make the args an array of expressions
     args: std.ArrayList(VariableRef),
 };
 
@@ -63,6 +64,7 @@ pub const VariableRef = struct {
 pub const Expr = union(enum) {
     VariableReference: VariableRef,
     LiteralExpr: LiteralExpr,
+    FunctionCall: FunctionCall,
 };
 
 pub const BinaryExpr = struct {
@@ -144,6 +146,13 @@ pub const ast = struct {
                         var expr_value = literalExpr.value;
                         std.debug.print("{s}Left: Value: {s}\n", .{ taps, expr_value });
                     },
+                    .FunctionCall => |functionCall| {
+                        var name = functionCall.name;
+                        std.debug.print("{s}Left: name: {s},\n", .{ taps, name });
+                        for (functionCall.args.items) |arg| {
+                            std.debug.print("{s}args: {s},\n", .{ taps, arg.name });
+                        }
+                    },
                 }
                 std.debug.print("{s}Operator: {s}\n", .{ taps, operator });
                 switch (right) {
@@ -154,6 +163,13 @@ pub const ast = struct {
                     .LiteralExpr => |literalExpr| {
                         var expr_value = literalExpr.value;
                         std.debug.print("{s}Right: Value: {s}\n", .{ taps, expr_value });
+                    },
+                    .FunctionCall => |functionCall| {
+                        var name = functionCall.name;
+                        std.debug.print("{s}Right: name: {s},\n", .{ taps, name });
+                        for (functionCall.args.items) |arg| {
+                            std.debug.print("{s}args: {s},\n", .{ taps, arg.name });
+                        }
                     },
                 }
             },
@@ -169,6 +185,13 @@ pub const ast = struct {
                         var expr_value = literalExpr.value;
                         std.debug.print("{s}Operand: Value: {s}\n", .{ taps, expr_value });
                     },
+                    .FunctionCall => |functionCall| {
+                        var name = functionCall.name;
+                        std.debug.print("{s}Operand: name: {s},\n", .{ taps, name });
+                        for (functionCall.args.items) |arg| {
+                            std.debug.print("{s}args: {s},\n", .{ taps, arg.name });
+                        }
+                    },
                 }
                 std.debug.print("{s}Operator: {s}\n", .{ taps, operator });
             },
@@ -183,6 +206,9 @@ pub const ast = struct {
             .FunctionCall => |functionCall| {
                 var name = functionCall.name;
                 std.debug.print("{s}name: {s},\n", .{ taps, name });
+                for (functionCall.args.items) |arg| {
+                    std.debug.print("{s}args: {s},\n", .{ taps, arg.name });
+                }
             },
         }
     }
@@ -220,6 +246,14 @@ pub const ast = struct {
                 std.debug.print("{s}ReturnStmt: \n", .{taps});
                 var value = returnStmt.Value;
                 Self.printNodeExpression(value, "\t\t\t");
+            },
+            .FunctionCall => |functionCall| {
+                var name = functionCall.name;
+                std.debug.print("{s}FunctionCall: \n\t\t\tname: {s}\n", .{ taps, name });
+                for (functionCall.args.items) |arg| {
+                    var arg_name = arg.name;
+                    std.debug.print("{s}arg_name: {s}\n", .{ taps, arg_name });
+                }
             },
             else => {},
         }
