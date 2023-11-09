@@ -9,7 +9,7 @@ fn factorial(n: int): int {
 }
 
 fn main(): int {
-    let result: int = factorial(5);
-    return result;
+    let result: int = factorial(x - 5);
+    return result - 1;
 }
 

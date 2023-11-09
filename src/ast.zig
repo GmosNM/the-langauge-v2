@@ -48,7 +48,7 @@ pub const FunctionDecl = struct {
 pub const FunctionCall = struct {
     name: []const u8,
     // TODO: make the args an array of expressions
-    args: std.ArrayList(VariableRef),
+    args: std.ArrayList(Expression),
 };
 
 pub const IfStmt = struct {
@@ -131,7 +131,6 @@ pub const ast = struct {
     }
 
     fn printNodeExpression(Self: *ast, node: Expression, taps: []const u8) void {
-        _ = Self;
         switch (node) {
             .BinaryExpr => |binaryExpr| {
                 var left = binaryExpr.left;
@@ -150,7 +149,7 @@ pub const ast = struct {
                         var name = functionCall.name;
                         std.debug.print("{s}Left: name: {s},\n", .{ taps, name });
                         for (functionCall.args.items) |arg| {
-                            std.debug.print("{s}args: {s},\n", .{ taps, arg.name });
+                            Self.printNodeExpression(arg, "\t\t\t");
                         }
                     },
                 }
@@ -168,7 +167,7 @@ pub const ast = struct {
                         var name = functionCall.name;
                         std.debug.print("{s}Right: name: {s},\n", .{ taps, name });
                         for (functionCall.args.items) |arg| {
-                            std.debug.print("{s}args: {s},\n", .{ taps, arg.name });
+                            Self.printNodeExpression(arg, "\t\t\t");
                         }
                     },
                 }
@@ -189,7 +188,7 @@ pub const ast = struct {
                         var name = functionCall.name;
                         std.debug.print("{s}Operand: name: {s},\n", .{ taps, name });
                         for (functionCall.args.items) |arg| {
-                            std.debug.print("{s}args: {s},\n", .{ taps, arg.name });
+                            Self.printNodeExpression(arg, "\t\t\t");
                         }
                     },
                 }
@@ -207,7 +206,7 @@ pub const ast = struct {
                 var name = functionCall.name;
                 std.debug.print("{s}name: {s},\n", .{ taps, name });
                 for (functionCall.args.items) |arg| {
-                    std.debug.print("{s}args: {s},\n", .{ taps, arg.name });
+                    Self.printNodeExpression(arg, "\t\t\t");
                 }
             },
         }
@@ -251,8 +250,7 @@ pub const ast = struct {
                 var name = functionCall.name;
                 std.debug.print("{s}FunctionCall: \n\t\t\tname: {s}\n", .{ taps, name });
                 for (functionCall.args.items) |arg| {
-                    var arg_name = arg.name;
-                    std.debug.print("{s}arg_name: {s}\n", .{ taps, arg_name });
+                    Self.printNodeExpression(arg, "\t\t\t");
                 }
             },
             else => {},
@@ -282,8 +280,7 @@ pub const ast = struct {
                     var name = functionCall.name;
                     std.debug.print("{s}: \n\tname: {s}\n", .{ @tagName(node), name });
                     for (functionCall.args.items) |arg| {
-                        var arg_name = arg.name;
-                        std.debug.print("\targ_name: {s}\n", .{arg_name});
+                        Self.printNodeExpression(arg, "\t\t\t");
                     }
                 },
                 .FunctionDecl => |function| {
