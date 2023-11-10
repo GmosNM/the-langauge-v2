@@ -10,9 +10,6 @@ const token = @import("lexer.zig").Token;
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-// Roadmap
-// - Parse
-
 pub const Parser = struct {
     tokens_: std.ArrayList(token),
     current: token,
@@ -284,14 +281,12 @@ pub const Parser = struct {
                 }
                 if (self.current.kind == .identifier) {
                     var lhs = self.current.lexeme;
-                    try self.consume(.identifier);
                     var rhs: []const u8 = "";
                     var rightVar: vv.Expr = undefined;
-                    var leftVar: vv.Expr = vv.Expr{ .VariableReference = .{
-                        .name = lhs,
-                    } };
+                    var leftVar: vv.Expr = undefined;
+                    try self.consume(.identifier);
                     if (self.current.kind == .left_paren) {
-                        rightVar = try self.parseFunctionCallExpr(lhs);
+                        leftVar = try self.parseFunctionCallExpr(lhs);
                     }
                     if (!self.isOperator()) {
                         try args.append(.{
@@ -346,10 +341,10 @@ pub const Parser = struct {
                 }
                 if (self.current.kind == .number_literal) {
                     var value = self.current.lexeme;
+                    try self.consume(.number_literal);
                     var v_left = vv.Expr{ .LiteralExpr = .{
                         .value = value,
                     } };
-                    try self.consume(.number_literal);
                     if (!self.isOperator()) {
                         try args.append(.{ .LiteralExpr = .{
                             .value = value,
@@ -359,12 +354,25 @@ pub const Parser = struct {
                         var v_right = vv.Expr{ .LiteralExpr = .{
                             .value = self.current.lexeme,
                         } };
-                        try self.consume(.number_literal);
-                        try args.append(.{ .BinaryExpr = .{
-                            .left = v_left,
-                            .operator = op,
-                            .right = v_right,
-                        } });
+                        if (self.current.kind == .number_literal) {
+                            try self.consume(.number_literal);
+                            try args.append(.{ .BinaryExpr = .{
+                                .left = v_left,
+                                .operator = op,
+                                .right = v_right,
+                            } });
+                        }
+                        if (self.current.kind == .identifier) {
+                            v_right = vv.Expr{ .VariableReference = .{
+                                .name = self.current.lexeme,
+                            } };
+                            try self.consume(.identifier);
+                            try args.append(.{ .BinaryExpr = .{
+                                .left = v_left,
+                                .operator = op,
+                                .right = v_right,
+                            } });
+                        }
                     }
                 }
 
@@ -473,32 +481,58 @@ pub const Parser = struct {
                 try self.consume(.identifier);
                 // Function Call
                 if (self.current.kind == .left_paren) {
-                    var v2 = try self.parseFunctionCallExpr(func_name);
-                    var v3: vv.Expr = undefined;
+                    var left_function = try self.parseFunctionCallExpr(func_name);
+                    var left_function_expr = vv.Expr{ .FunctionCall = .{
+                        .name = func_name,
+                        .args = left_function.args,
+                    } };
+                    var right_function_expr: vv.Expr = undefined;
                     if (!self.isOperator()) {
                         return vv.Expression{ .FunctionCall = .{
                             .name = func_name,
-                            .args = v2.args,
+                            .args = left_function.args,
                         } };
                     } else {
                         var op = try self.getOperator();
-                        try self.consume(.identifier);
-                        var func = try self.parseFunctionCallExpr(func_name);
-                        v3 = vv.Expr{ .FunctionCall = .{
-                            .name = func.name,
-                            .args = func.args,
-                        } };
-                        var left2 = vv.Expr{ .FunctionCall = .{
-                            .name = func_name,
-                            .args = v2.args,
-                        } };
-                        return vv.Expression{ .BinaryExpr = .{
-                            .left = left2,
-                            .operator = op,
-                            .right = v3,
-                        } };
+                        if (self.current.kind == .number_literal) {
+                            var right_value = self.current.lexeme;
+                            try self.consume(.number_literal);
+                            var right = vv.Expr{ .LiteralExpr = .{
+                                .value = right_value,
+                            } };
+                            return vv.Expression{ .BinaryExpr = .{
+                                .left = left_function_expr,
+                                .operator = op,
+                                .right = right,
+                            } };
+                        } else if (self.current.kind == .identifier) {
+                            if (self.current.kind == .left_paren) {
+                                var right_function = try self.parseFunctionCallExpr(func_name);
+
+                                right_function_expr = vv.Expr{ .FunctionCall = .{
+                                    .name = right_function.name,
+                                    .args = right_function.args,
+                                } };
+                                return vv.Expression{ .BinaryExpr = .{
+                                    .left = left_function_expr,
+                                    .operator = op,
+                                    .right = right_function_expr,
+                                } };
+                            } else {
+                                var right = vv.Expr{ .VariableReference = .{
+                                    .name = self.current.lexeme,
+                                } };
+                                try self.consume(.identifier);
+                                return vv.Expression{ .BinaryExpr = .{
+                                    .left = left_function_expr,
+                                    .operator = op,
+                                    .right = right,
+                                } };
+                            }
+                        }
                     }
                 }
+
                 while (self.isOperator()) {
                     var op = try self.getOperator();
                     var right: vv.Expr = undefined;
@@ -598,6 +632,7 @@ pub const Parser = struct {
         }
         var v_type = try self.parseValueType();
         var value = try self.parseExpression();
+        try self.expectSimicolon();
         return node{
             .VariableReference = .{
                 .value = value,

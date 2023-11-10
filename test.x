@@ -1,13 +1,7 @@
 
-fn fibonacci(n: int): int {
-    if (n <= 1) {
-        return n;
-    } else {
-        return fibonacci(n - 1) - fibonacci(n - 2);
-    }
-}
 
 
 fn main(): int {
-    return factorial(2);
+    let y: int = fibonacci(10) * 10;
+    return factorial(2) - y;
 }
