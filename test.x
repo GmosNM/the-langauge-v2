@@ -1,15 +1,13 @@
 
-
-
-fn factorial(n: int): int {
+fn fibonacci(n: int): int {
     if (n <= 1) {
-        return 1;
+        return n;
+    } else {
+        return fibonacci(n - 1) - fibonacci(n - 2);
     }
-    return n * factorial(n - 1);
 }
+
 
 fn main(): int {
-    let result: int = factorial(x - 5);
-    return result - 1;
+    return factorial(2);
 }
-

@@ -47,14 +47,13 @@ pub const FunctionDecl = struct {
 
 pub const FunctionCall = struct {
     name: []const u8,
-    // TODO: make the args an array of expressions
     args: std.ArrayList(Expression),
 };
 
 pub const IfStmt = struct {
     condition: Expression,
     body: Body,
-    else_body: Body,
+    else_body: ?Body,
 };
 
 pub const VariableRef = struct {
@@ -226,6 +225,12 @@ pub const ast = struct {
                 for (body.body.items) |body_nodes| {
                     Self.printBodyNode(body_nodes, "\t\t\t");
                 }
+                if (ifStmt.else_body) |else_body| {
+                    std.debug.print("{s}- [ELSE]Body: \n", .{taps});
+                    for (else_body.body.items) |body_nodes| {
+                        Self.printBodyNode(body_nodes, "\t\t\t");
+                    }
+                }
             },
             .VariableDecl => |variable| {
                 std.debug.print("{s}VariableDecl: \n", .{taps});
@@ -253,7 +258,29 @@ pub const ast = struct {
                     Self.printNodeExpression(arg, "\t\t\t");
                 }
             },
-            else => {},
+            .FunctionDecl => |functionDecl| {
+                var name = functionDecl.name;
+                std.debug.print("{s}FunctionDecl: \n\t\t\tname: {s}\n", .{ taps, name });
+                std.debug.print("{s}return_type: {s}\n", .{ taps, @tagName(functionDecl.return_type) });
+                for (functionDecl.args.items) |arg| {
+                    var arg_name = arg.name;
+                    var t = @tagName(arg.Type);
+                    std.debug.print("{s}arg_name: {s}, Type: {s}\n", .{ taps, arg_name, t });
+                }
+                for (functionDecl.body.body.items) |body_nodes| {
+                    Self.printBodyNode(body_nodes, "\t\t\t");
+                }
+            },
+            .Expr => |expr| {
+                std.debug.print("{s}Expr: \n", .{taps});
+                Self.printNodeExpression(expr, "\t\t\t");
+            },
+            .Body => |body| {
+                std.debug.print("{s}Body: \n", .{taps});
+                for (body.body.items) |body_nodes| {
+                    Self.printBodyNode(body_nodes, "\t\t\t");
+                }
+            },
         }
     }
 
@@ -297,7 +324,7 @@ pub const ast = struct {
                     }
                 },
                 else => {
-                    std.debug.print("{s}: \n", .{@tagName(node)});
+                    @panic("unreachable");
                 },
             }
         }
