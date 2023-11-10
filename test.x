@@ -1,7 +1,19 @@
 
+fn add(a: int
+      |b: int
+    ):int {
+    return a + b;
+}
+
+fn fibonacci(n: int): int {
+    if (n <= 1) {
+        return n;
+    } else {
+        return fibonacci(n - 1) - fibonacci(n - 2);
+    }
+}
 
 
 fn main(): int {
-    let y: int = fibonacci(10) * 10;
-    return factorial(2) - y;
+    return factorial(2) - add(1,10);
 }

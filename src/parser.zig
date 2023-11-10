@@ -506,11 +506,13 @@ pub const Parser = struct {
                                 .right = right,
                             } };
                         } else if (self.current.kind == .identifier) {
+                            var right_value_name = self.current.lexeme;
+                            try self.consume(.identifier);
                             if (self.current.kind == .left_paren) {
                                 var right_function = try self.parseFunctionCallExpr(func_name);
 
                                 right_function_expr = vv.Expr{ .FunctionCall = .{
-                                    .name = right_function.name,
+                                    .name = right_value_name,
                                     .args = right_function.args,
                                 } };
                                 return vv.Expression{ .BinaryExpr = .{
@@ -520,9 +522,8 @@ pub const Parser = struct {
                                 } };
                             } else {
                                 var right = vv.Expr{ .VariableReference = .{
-                                    .name = self.current.lexeme,
+                                    .name = right_value_name,
                                 } };
-                                try self.consume(.identifier);
                                 return vv.Expression{ .BinaryExpr = .{
                                     .left = left_function_expr,
                                     .operator = op,
