@@ -1,6 +1,6 @@
 const std = @import("std");
-const tokenizer = @import("lexer.zig").Tokenizer;
 const parser = @import("parser.zig").Parser;
+const semantic = @import("sema.zig");
 
 pub fn read_file(filename: []const u8) ![]const u8 {
     var buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
@@ -16,7 +16,11 @@ pub fn main() !void {
     try par.parse();
     par.ast.print();
 
+    var sema = semantic.init(alloc.allocator(), par);
+    try sema.analyze(par.ast);
+
     defer par.deinit();
+    defer sema.deinit();
 }
 
 test "tests" {

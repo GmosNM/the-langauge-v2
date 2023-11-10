@@ -115,6 +115,12 @@ pub const Node = union(enum) {
 pub const ast = struct {
     nodes: std.ArrayList(Node),
 
+    pub fn pushto(self: *ast, array: std.ArrayList(Node)) !void {
+        for (self.nodes.items) |node| {
+            try array.append(node);
+        }
+    }
+
     pub fn init(allocator: std.mem.Allocator) ast {
         return .{
             .nodes = std.ArrayList(Node).init(allocator),

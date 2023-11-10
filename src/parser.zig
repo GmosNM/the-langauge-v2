@@ -44,9 +44,6 @@ pub const Parser = struct {
         for (tokens.items) |t| {
             try self.tokens_.append(t);
         }
-        for (self.tokens_.items) |t| {
-            std.debug.print("{s} \"{s}\" Location: Col: {} Line: {}\n", .{ @tagName(t.kind), t.lexeme, t.location.column, t.location.line });
-        }
     }
 
     fn parseType(self: *Parser) !types {
@@ -801,16 +798,11 @@ pub const Parser = struct {
                 },
             }
         }
-        std.debug.print("parsed {d} tokens\n", .{self.token_i});
     }
 
     fn expectSimicolon(self: *Parser) !void {
         if (self.current.kind == .semicolon) {
             try self.next();
-        } else {
-            try self.PrintError();
-            std.log.err("Syntax error: Expected semicolon", .{});
-            return Error.invalid_token;
         }
     }
 
@@ -876,6 +868,13 @@ pub const Parser = struct {
             line,
             col,
         });
+    }
+
+    pub fn expect(self: *Parser, kind: token.Kind) !bool {
+        if (self.current.kind == kind) {
+            return true;
+        }
+        return false;
     }
 
     fn consume(self: *Parser, kind: token.Kind) !void {
