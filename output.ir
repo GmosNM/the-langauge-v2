@@ -1,0 +1,6 @@
+define int @add(i32 %x, i32 %y) {
+}
+define int @main() {
+%result = load i32, i32* %x
+ret i32 %result
+}
