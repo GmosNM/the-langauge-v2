@@ -124,6 +124,9 @@ pub fn printall(self: symbol_table) void {
         }
         for (scope.Functions.items) |function| {
             std.debug.print("Function: {s}\n", .{function.name});
+            for (function.args.items) |arg| {
+                std.debug.print("Arg: {s}\n", .{arg.name});
+            }
         }
     }
 }

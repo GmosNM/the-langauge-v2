@@ -307,7 +307,10 @@ pub const ast = struct {
                 },
                 .VariableReference => |variable| {
                     var v_type = @tagName(variable.value_type);
-                    std.debug.print("\n\tType: {s}\n", .{v_type});
+                    var v_name = variable.name;
+                    std.debug.print("{s}: \n\tname: {s}\n", .{ @tagName(node), v_name });
+                    std.debug.print("\tType: {s}\n", .{v_type});
+                    Self.printNodeExpression(variable.value, "\t");
                 },
                 .FunctionCall => |functionCall| {
                     var name = functionCall.name;

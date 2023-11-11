@@ -789,13 +789,11 @@ pub const Parser = struct {
                     var func = try self.parseFunctionDecl();
                     try self.ast.push(func);
                 },
-                else => {
-                    if (self.current.kind == .identifier) {
-                        try self.PrintError();
-                        std.io.getStdOut().writeAll("You can't call a function with an identifier\n") catch {};
-                        break;
-                    }
+                .identifier => {
+                    var varerf = try self.parseVariableReferance();
+                    try self.ast.push(varerf);
                 },
+                else => {},
             }
         }
     }
